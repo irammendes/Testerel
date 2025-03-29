@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Fotográfico Ambiental 3.1</title>
+    <title>Relatório Fotográfico Ambiental 3.2</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body {
@@ -196,21 +196,74 @@
             page-break-inside: avoid;
             break-inside: avoid;
         }
+        
+        /* Estilos específicos para impressão/PDF */
         @media print {
             .no-print {
-                display: none;
+                display: none !important;
             }
             body {
                 margin: 0;
                 padding: 0;
+                font-size: 12pt;
+                line-height: 1.3;
             }
             .container {
+                max-width: 100%;
                 border: none;
                 box-shadow: none;
                 padding: 0;
             }
+            .header {
+                margin-bottom: 15pt;
+                padding-bottom: 5pt;
+            }
+            h1 {
+                font-size: 18pt;
+                margin-bottom: 10pt;
+            }
+            h2 {
+                font-size: 14pt;
+                margin-top: 15pt;
+                margin-bottom: 8pt;
+            }
+            .form-section {
+                margin-bottom: 20pt;
+            }
+            .photo-item {
+                page-break-inside: avoid;
+                margin-bottom: 15pt;
+            }
+            .photo-preview {
+                max-height: 250pt;
+                height: auto;
+            }
+            #signature-pad {
+                width: 100% !important;
+                height: 80pt !important;
+            }
             .footer {
                 display: none;
+            }
+            
+            /* Cabeçalho e rodapé das páginas */
+            @page {
+                size: A4;
+                margin: 2cm 1.5cm 2cm 1.5cm;
+                
+                @top-center {
+                    content: "Relatório Fotográfico Ambiental - ICMBio";
+                    font-size: 10pt;
+                    border-bottom: 1px solid #006400;
+                    padding-bottom: 5pt;
+                }
+                
+                @bottom-center {
+                    content: "Página " counter(page) " de " counter(pages);
+                    font-size: 10pt;
+                    border-top: 1px solid #006400;
+                    padding-top: 5pt;
+                }
             }
         }
     </style>
@@ -223,7 +276,7 @@
     
     <div class="container" id="relatorio">
         <div class="header">
-            <h1>Relatório Fotográfico Ambiental - Versão 3.1</h1>
+            <h1>Relatório Fotográfico Ambiental - Versão 3.2</h1>
             <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
             <div id="qrcode"></div>
         </div>
@@ -788,7 +841,7 @@
             }
         }
         
-        // Gera PDF otimizado sem páginas repetidas
+        // Gera PDF com paginação melhorada
         function generatePDF() {
             if (!checkStorageSpace()) {
                 alert('Não é possível gerar PDF com armazenamento cheio.');
@@ -800,7 +853,7 @@
             const element = document.getElementById('relatorio');
             const padding = 40;
             const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
-            const pageHeight = doc.internal.pageSize.getHeight() - padding;
+            const pageHeight = doc.internal.pageSize.getHeight() - padding - 40; // Espaço para cabeçalho/rodapé
             
             // Mostra mensagem de processamento
             const loadingMessage = document.createElement('div');
@@ -816,65 +869,102 @@
             loadingMessage.textContent = 'Gerando PDF, por favor aguarde...';
             document.body.appendChild(loadingMessage);
             
-            // Cria um array de promessas para cada seção
-            const sections = Array.from(document.querySelectorAll('.form-section'));
-            const renderPromises = sections.map((section, index) => {
-                return html2canvas(section, {
+            // Divide o relatório em seções lógicas para melhor paginação
+            const sections = [
+                {
+                    title: "Dados do Relatório",
+                    selector: ".form-section:nth-child(2)"
+                },
+                {
+                    title: "Autos de Infração",
+                    selector: ".form-section:nth-child(3)"
+                },
+                {
+                    title: "Termos",
+                    selector: ".form-section:nth-child(4)"
+                },
+                {
+                    title: "Descrição da Ação",
+                    selector: ".form-section:nth-child(5)"
+                },
+                {
+                    title: "Registro Fotográfico",
+                    selector: ".form-section:nth-child(6)",
+                    isPhotoSection: true
+                },
+                {
+                    title: "Assinatura do Fiscal",
+                    selector: ".form-section:nth-child(7)"
+                }
+            ];
+            
+            let currentPage = 1;
+            
+            // Função para adicionar cabeçalho
+            const addHeader = (doc, title, pageNumber, totalPages) => {
+                doc.setFontSize(14);
+                doc.setTextColor(0, 100, 0);
+                doc.text(title, padding, padding - 10);
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Página ${pageNumber} de ${totalPages}`, doc.internal.pageSize.getWidth() - padding - 50, padding - 10);
+                
+                // Linha divisória
+                doc.setDrawColor(0, 100, 0);
+                doc.setLineWidth(0.5);
+                doc.line(padding, padding, doc.internal.pageSize.getWidth() - padding, padding);
+            };
+            
+            // Processa cada seção sequencialmente
+            const processSection = (index) => {
+                if (index >= sections.length) {
+                    // Remove a mensagem de carregamento
+                    document.body.removeChild(loadingMessage);
+                    
+                    // Salva o PDF
+                    doc.save('relatorio_ambiental.pdf');
+                    return;
+                }
+                
+                const section = sections[index];
+                const sectionElement = document.querySelector(section.selector);
+                
+                html2canvas(sectionElement, {
                     scale: 2,
                     logging: false,
                     useCORS: true,
-                    backgroundColor: '#FFFFFF'
+                    backgroundColor: '#FFFFFF',
+                    allowTaint: true
                 }).then(canvas => {
-                    return {
-                        canvas,
-                        index
-                    };
-                });
-            });
-            
-            // Processa todas as seções sequencialmente
-            Promise.all(renderPromises).then(results => {
-                results.forEach((result, i) => {
-                    const { canvas, index } = result;
-                    
-                    // Adiciona nova página se não for a primeira
-                    if (i > 0) {
-                        doc.addPage();
-                    }
-                    
-                    // Adiciona cabeçalho
-                    doc.setFontSize(18);
-                    doc.text('Relatório Fotográfico Ambiental', padding, padding - 20);
-                    doc.setFontSize(12);
-                    doc.text(`Data: ${document.getElementById('data').value}`, padding, padding);
-                    doc.text(`Local: ${document.getElementById('local').value}`, padding, padding + 15);
-                    
-                    // Calcula dimensões da imagem
                     const imgData = canvas.toDataURL('image/png');
                     const imgWidth = pageWidth;
                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
                     
-                    // Adiciona a imagem ao PDF
-                    doc.addImage(imgData, 'PNG', 
-                        padding, padding + 40, // Deslocamento para o cabeçalho
-                        imgWidth, imgHeight);
+                    // Verifica se precisa de nova página
+                    if (currentPage > 1 || (index > 0 && doc.autoTableEndPosY() + imgHeight > pageHeight)) {
+                        doc.addPage();
+                        currentPage++;
+                    }
                     
-                    // Adiciona rodapé
-                    doc.setFontSize(10);
-                    doc.text(`Página ${i + 1} de ${sections.length}`, 
-                        doc.internal.pageSize.getWidth() - padding - 50, 
-                        doc.internal.pageSize.getHeight() - 20);
+                    // Adiciona cabeçalho
+                    addHeader(doc, section.title, currentPage, sections.length);
+                    
+                    // Calcula posição Y inicial (após cabeçalho)
+                    const startY = padding + 20;
+                    
+                    // Adiciona a imagem ao PDF
+                    doc.addImage(imgData, 'PNG', padding, startY, imgWidth, imgHeight);
+                    
+                    // Processa próxima seção
+                    processSection(index + 1);
+                }).catch(error => {
+                    document.body.removeChild(loadingMessage);
+                    alert('Erro ao gerar PDF: ' + error.message);
                 });
-                
-                // Remove a mensagem de carregamento
-                document.body.removeChild(loadingMessage);
-                
-                // Salva o PDF
-                doc.save('relatorio_ambiental.pdf');
-            }).catch(error => {
-                document.body.removeChild(loadingMessage);
-                alert('Erro ao gerar PDF: ' + error.message);
-            });
+            };
+            
+            // Inicia o processamento
+            processSection(0);
         }
         
         // Salva os dados no localStorage
