@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Fotográfico Ambiental 3.2</title>
+    <title>Relatório Fotográfico Ambiental 3.3</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body {
@@ -196,6 +196,11 @@
             page-break-inside: avoid;
             break-inside: avoid;
         }
+        .coord-source {
+            font-size: 0.8em;
+            color: #666;
+            font-style: italic;
+        }
         
         /* Estilos específicos para impressão/PDF */
         @media print {
@@ -276,7 +281,7 @@
     
     <div class="container" id="relatorio">
         <div class="header">
-            <h1>Relatório Fotográfico Ambiental - Versão 3.2</h1>
+            <h1>Relatório Fotográfico Ambiental - Versão 3.3</h1>
             <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
             <div id="qrcode"></div>
         </div>
@@ -390,7 +395,7 @@
             <div class="form-group no-print">
                 <label for="photo-upload">Adicionar Fotos:</label>
                 <input type="file" id="photo-upload" accept="image/*" multiple>
-                <small>Selecione uma ou mais fotos para upload</small>
+                <small>Selecione uma ou mais fotos para upload (com geolocalização preferencialmente)</small>
             </div>
             
             <div id="photo-container" class="photo-container">
@@ -405,6 +410,7 @@
                     <div class="form-group">
                         <label>Coordenadas:</label>
                         <input type="text" class="photo-coords" readonly>
+                        <div class="coord-source"></div>
                     </div>
                     <button class="btn btn-secondary remove-photo no-print">Remover</button>
                 </div>
@@ -446,6 +452,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
     
     <script>
         // Variáveis globais
@@ -748,44 +755,89 @@
         // Manipula o upload de fotos
         function handlePhotoUpload(e) {
             const files = e.target.files;
-            const lat = parseFloat(document.getElementById('latitude').value);
-            const lng = parseFloat(document.getElementById('longitude').value);
-            
-            if (isNaN(lat) || isNaN(lng)) {
-                alert("Por favor, defina as coordenadas antes de adicionar fotos.");
-                return;
-            }
+            const defaultCoords = {
+                lat: parseFloat(document.getElementById('latitude').value) || -15.788,
+                lng: parseFloat(document.getElementById('longitude').value) || -47.879,
+                fromExif: false
+            };
             
             for (let i = 0; i < files.length; i++) {
-                addPhoto(files[i], { lat, lng });
+                const file = files[i];
+                
+                if (file.type.match('image.*')) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        EXIF.getData(file, function() {
+                            const exifData = EXIF.getAllTags(this);
+                            let coords = {...defaultCoords};
+                            
+                            if (exifData.GPSLatitude && exifData.GPSLongitude) {
+                                coords = {
+                                    lat: convertDMSToDD(
+                                        exifData.GPSLatitude[0],
+                                        exifData.GPSLatitude[1],
+                                        exifData.GPSLatitude[2],
+                                        exifData.GPSLatitudeRef
+                                    ),
+                                    lng: convertDMSToDD(
+                                        exifData.GPSLongitude[0],
+                                        exifData.GPSLongitude[1],
+                                        exifData.GPSLongitude[2],
+                                        exifData.GPSLongitudeRef
+                                    ),
+                                    fromExif: true
+                                };
+                            }
+                            
+                            addPhoto(file, coords);
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    addPhoto(file, defaultCoords);
+                }
             }
             
             e.target.value = '';
         }
+
+        // Converte DMS para DD (graus decimais)
+        function convertDMSToDD(degrees, minutes, seconds, direction) {
+            let dd = Number(degrees) + (Number(minutes) / 60) + (Number(seconds) / 3600);
+            if (direction === 'S' || direction === 'W') {
+                dd = dd * -1;
+            }
+            return dd;
+        }
         
         // Adiciona uma foto ao relatório
         function addPhoto(file, coords) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                photoCount++;
-                const photoContainer = document.getElementById('photo-container');
-                const template = photoContainer.querySelector('.photo-item');
-                const newPhoto = template.cloneNode(true);
-                
-                newPhoto.style.display = 'block';
-                newPhoto.querySelector('.photo-number').textContent = `Figura ${photoCount}`;
-                newPhoto.querySelector('.photo-preview').src = e.target.result;
-                newPhoto.querySelector('.photo-coords').value = 
-                    `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
-                
-                newPhoto.querySelector('.remove-photo').addEventListener('click', function() {
-                    photoContainer.removeChild(newPhoto);
-                    updatePhotoNumbers();
-                });
-                
-                photoContainer.appendChild(newPhoto);
-            };
-            reader.readAsDataURL(file);
+            photoCount++;
+            const photoContainer = document.getElementById('photo-container');
+            const template = photoContainer.querySelector('.photo-item');
+            const newPhoto = template.cloneNode(true);
+            
+            newPhoto.style.display = 'block';
+            newPhoto.querySelector('.photo-number').textContent = `Figura ${photoCount}`;
+            newPhoto.querySelector('.photo-preview').src = URL.createObjectURL(file);
+            
+            const coordSource = coords.fromExif ? 
+                '(Coordenadas extraídas da foto)' : 
+                '(Coordenadas do formulário)';
+            
+            newPhoto.querySelector('.photo-coords').value = 
+                `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+            newPhoto.querySelector('.coord-source').textContent = coordSource;
+            
+            newPhoto.querySelector('.photo-caption').placeholder = "Descreva a foto...";
+            
+            newPhoto.querySelector('.remove-photo').addEventListener('click', function() {
+                photoContainer.removeChild(newPhoto);
+                updatePhotoNumbers();
+            });
+            
+            photoContainer.appendChild(newPhoto);
         }
         
         // Atualiza a numeração das fotos
@@ -1019,7 +1071,8 @@
                 reportData.photos.push({
                     caption: photo.querySelector('.photo-caption').value,
                     coords: photo.querySelector('.photo-coords').value,
-                    src: photo.querySelector('.photo-preview').src
+                    src: photo.querySelector('.photo-preview').src,
+                    coordSource: photo.querySelector('.coord-source').textContent
                 });
             });
             
@@ -1127,18 +1180,6 @@
                 if (reportData.photos && reportData.photos.length > 0) {
                     reportData.photos.forEach(photo => {
                         if (photo.src) {
-                            // Simula um objeto File para carregar a foto
-                            const fakeFile = {
-                                name: 'foto_carregada.png',
-                                type: 'image/png'
-                            };
-                            
-                            // Cria um objeto de coordenadas
-                            const coords = {
-                                lat: parseFloat(photo.coords.split(',')[0]),
-                                lng: parseFloat(photo.coords.split(',')[1])
-                            };
-                            
                             // Cria um elemento de foto manualmente
                             photoCount++;
                             const photoContainer = document.getElementById('photo-container');
@@ -1150,6 +1191,7 @@
                             newPhoto.querySelector('.photo-preview').src = photo.src;
                             newPhoto.querySelector('.photo-caption').value = photo.caption || '';
                             newPhoto.querySelector('.photo-coords').value = photo.coords || '';
+                            newPhoto.querySelector('.coord-source').textContent = photo.coordSource || '';
                             
                             newPhoto.querySelector('.remove-photo').addEventListener('click', function() {
                                 photoContainer.removeChild(newPhoto);
