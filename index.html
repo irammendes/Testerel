@@ -177,6 +177,13 @@
             margin: 15px 0;
             text-align: center;
         }
+        .alert-warning {
+            display: none;
+            padding: 10px;
+            background: #fff3cd;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
         @media print {
             .no-print {
                 display: none;
@@ -196,11 +203,17 @@
             .photo-item {
                 page-break-inside: avoid;
             }
+            .form-section {
+                page-break-after: avoid;
+            }
         }
     </style>
 </head>
 <body>
     <div id="connectionStatus" class="connection-status offline">Offline</div>
+    <div id="storage-warning" class="alert-warning">
+        Atenção: O armazenamento está quase cheio. Alguns dados podem não ser salvos.
+    </div>
     
     <div class="container" id="relatorio">
         <div class="header">
@@ -358,8 +371,10 @@
         
         <div class="action-buttons no-print">
             <button id="print-report" class="btn">Imprimir Relatório</button>
+            <button id="generate-pdf" class="btn btn-secondary">Gerar PDF</button>
             <button id="save-data" class="btn btn-secondary">Salvar Dados</button>
             <button id="load-data" class="btn btn-secondary">Carregar Dados</button>
+            <button id="clear-storage" class="btn btn-danger">Limpar Armazenamento</button>
         </div>
         
         <div class="footer">
@@ -370,6 +385,8 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script>
         // Variáveis globais
@@ -405,6 +422,9 @@
             
             // Gera QR Code inicial
             generateQRCode();
+            
+            // Verifica espaço de armazenamento
+            checkStorageSpace();
         });
         
         // Configura os listeners de eventos
@@ -422,9 +442,11 @@
             
             // Ações principais
             document.getElementById('print-report').addEventListener('click', printReport);
+            document.getElementById('generate-pdf').addEventListener('click', generatePDF);
             document.getElementById('save-data').addEventListener('click', saveData);
             document.getElementById('load-data').addEventListener('click', loadData);
             document.getElementById('clear-signature').addEventListener('click', clearSignature);
+            document.getElementById('clear-storage').addEventListener('click', clearStorage);
             
             // Monitora mudanças na conexão
             window.addEventListener('online', updateConnectionStatus);
@@ -723,15 +745,153 @@
             signaturePad.clear();
         }
         
+        // Limpa o armazenamento
+        function clearStorage() {
+            if (confirm('Tem certeza que deseja limpar todos os dados salvos?')) {
+                localStorage.clear();
+                alert('Armazenamento limpo com sucesso!');
+                document.getElementById('storage-warning').style.display = 'none';
+            }
+        }
+        
         // Imprime o relatório
         function printReport() {
             window.print();
+        }
+        
+        // Gera PDF otimizado
+        function generatePDF() {
+            if (!checkStorageSpace()) {
+                alert('Não é possível gerar PDF com armazenamento cheio.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const element = document.getElementById('relatorio');
+            const padding = 40;
+            const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
+            
+            // Mostra mensagem de processamento
+            const loadingMessage = document.createElement('div');
+            loadingMessage.style.position = 'fixed';
+            loadingMessage.style.top = '50%';
+            loadingMessage.style.left = '50%';
+            loadingMessage.style.transform = 'translate(-50%, -50%)';
+            loadingMessage.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            loadingMessage.style.color = 'white';
+            loadingMessage.style.padding = '20px';
+            loadingMessage.style.borderRadius = '5px';
+            loadingMessage.style.zIndex = '9999';
+            loadingMessage.textContent = 'Gerando PDF, por favor aguarde...';
+            document.body.appendChild(loadingMessage);
+            
+            // Primeiro criamos um canvas para calcular a altura total
+            html2canvas(element, {
+                scale: 1,
+                logging: false,
+                useCORS: true
+            }).then(tempCanvas => {
+                const tempImgData = tempCanvas.toDataURL('image/png');
+                const tempImgWidth = pageWidth;
+                const tempImgHeight = (tempCanvas.height * tempImgWidth) / tempCanvas.width;
+                
+                // Calcula quantas páginas serão necessárias
+                const pageHeight = doc.internal.pageSize.getHeight() - padding;
+                const totalPages = Math.ceil(tempImgHeight / pageHeight);
+                
+                // Agora geramos o PDF com qualidade maior, controlando a paginação
+                html2canvas(element, {
+                    scale: 2, // Maior qualidade
+                    logging: false,
+                    useCORS: true,
+                    windowHeight: element.scrollHeight / totalPages // Melhor distribuição
+                }).then(finalCanvas => {
+                    const imgData = finalCanvas.toDataURL('image/png');
+                    const imgWidth = pageWidth;
+                    const imgHeight = (finalCanvas.height * imgWidth) / finalCanvas.width;
+                    
+                    let position = padding;
+                    const imgHeightPerPage = pageHeight - padding;
+                    
+                    // Adiciona a primeira página com cabeçalho
+                    doc.setFontSize(18);
+                    doc.text('Relatório Fotográfico Ambiental', padding, padding - 20);
+                    doc.setFontSize(12);
+                    doc.text(`Data: ${document.getElementById('data').value}`, padding, padding);
+                    doc.text(`Local: ${document.getElementById('local').value}`, padding, padding + 15);
+                    
+                    // Adiciona a imagem em páginas segmentadas
+                    for (let i = 0; i < totalPages; i++) {
+                        if (i > 0) {
+                            doc.addPage();
+                        }
+                        
+                        const cropY = position - padding;
+                        const cropHeight = Math.min(imgHeightPerPage, imgHeight - cropY);
+                        
+                        doc.addImage(imgData, 'PNG', 
+                            padding, padding, 
+                            imgWidth, imgHeight,
+                            undefined, undefined, 0,
+                            cropY, imgWidth, cropHeight);
+                        
+                        position += imgHeightPerPage;
+                        
+                        // Adiciona rodapé com número de página
+                        doc.setFontSize(10);
+                        doc.text(`Página ${i + 1} de ${totalPages}`, 
+                            doc.internal.pageSize.getWidth() - padding - 50, 
+                            doc.internal.pageSize.getHeight() - 20);
+                    }
+                    
+                    // Remove a mensagem de carregamento
+                    document.body.removeChild(loadingMessage);
+                    
+                    // Salva o PDF
+                    doc.save('relatorio_ambiental.pdf');
+                }).catch(error => {
+                    document.body.removeChild(loadingMessage);
+                    alert('Erro ao gerar PDF: ' + error.message);
+                });
+            }).catch(error => {
+                document.body.removeChild(loadingMessage);
+                alert('Erro ao gerar PDF: ' + error.message);
+            });
+        }
+        
+        // Verifica o espaço disponível no localStorage
+        function checkStorageSpace() {
+            try {
+                // Testa o armazenamento tentando salvar dados
+                const testKey = 'storage_test';
+                let data = '';
+                for (let i = 0; i < 1024; i++) {
+                    data += '1234567890'; // 10KB
+                }
+                
+                localStorage.setItem(testKey, data);
+                localStorage.removeItem(testKey);
+                document.getElementById('storage-warning').style.display = 'none';
+                return true;
+            } catch (e) {
+                if (e.name === 'QuotaExceededError') {
+                    document.getElementById('storage-warning').style.display = 'block';
+                    return false;
+                }
+                return true;
+            }
         }
         
         // Salva os dados no localStorage
         function saveData() {
             if (!validateForm()) {
                 alert('Por favor, preencha todos os campos obrigatórios antes de salvar.');
+                return;
+            }
+            
+            if (!checkStorageSpace()) {
+                alert('Armazenamento cheio. Não é possível salvar os dados.');
                 return;
             }
             
