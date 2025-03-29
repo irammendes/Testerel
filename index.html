@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Fotográfico Ambiental 3.1</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #006400;
+        }
+        h1, h2 {
+            color: #006400;
+        }
+        .form-section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            background-color: #006400;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .coordinates {
+            display: flex;
+            gap: 15px;
+        }
+        .coord-input {
+            flex: 1;
+        }
+        .error {
+            color: red;
+            margin-top: 5px;
+        }
+        .photo-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+            page-break-inside: avoid;
+        }
+        .photo-item {
+            flex: 1 1 300px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            position: relative;
+            page-break-inside: avoid;
+        }
+        .photo-number {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background-color: rgba(0, 100, 0, 0.7);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .photo-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #f5f5f5;
+            margin-bottom: 10px;
+        }
+        .datetime-group {
+            display: flex;
+            gap: 15px;
+        }
+        .datetime-input {
+            flex: 1;
+        }
+        .dms-coordinates {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+        }
+        .online {
+            background-color: #28a745;
+        }
+        .offline {
+            background-color: #dc3545;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .termo-item, .auto-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+        .add-btn {
+            margin-bottom: 15px;
+        }
+        #signature-pad {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .signature-clear {
+            margin-top: 10px;
+        }
+        #qrcode {
+            margin: 15px 0;
+            text-align: center;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .footer {
+                display: none;
+            }
+            .photo-item {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="connectionStatus" class="connection-status offline">Offline</div>
+    
+    <div class="container" id="relatorio">
+        <div class="header">
+            <h1>Relatório Fotográfico Ambiental - Versão 3.1</h1>
+            <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
+            <div id="qrcode"></div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Dados do Relatório</h2>
+            
+            <div class="datetime-group">
+                <div class="datetime-input">
+                    <label for="data">Data:</label>
+                    <input type="date" id="data" required>
+                </div>
+                <div class="datetime-input">
+                    <label for="hora">Hora:</label>
+                    <input type="time" id="hora" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="local">Local da Fiscalização:</label>
+                <input type="text" id="local" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="infrator_nome">Nome do Infrator:</label>
+                <input type="text" id="infrator_nome" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="infrator_documento">CPF/CNPJ:</label>
+                <input type="text" id="infrator_documento" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Coordenadas Geográficas (Graus Decimais):</label>
+                <div class="coordinates">
+                    <input type="text" id="latitude" class="coord-input" placeholder="Latitude" readonly>
+                    <input type="text" id="longitude" class="coord-input" placeholder="Longitude" readonly>
+                </div>
+                <div id="coord-error" class="error"></div>
+                <div class="form-group">
+                    <input type="checkbox" id="rastreamento" checked>
+                    <label for="rastreamento" style="display: inline;">Atualizar coordenadas automaticamente</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Coordenadas em Graus, Minutos e Segundos:</label>
+                <div id="dms-coordinates" class="dms-coordinates">Não disponível</div>
+            </div>
+            
+            <div class="buttons no-print">
+                <button id="get-location" class="btn">Obter Localização Atual</button>
+                <button id="manual-coords" class="btn btn-secondary">Inserir Coordenadas Manualmente</button>
+            </div>
+            
+            <div id="map"></div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Autos de Infração</h2>
+            <div id="autos-container">
+                <div class="auto-item">
+                    <div class="form-group">
+                        <label for="auto_numero_1">Número do Auto de Infração:</label>
+                        <input type="text" id="auto_numero_1" class="auto-numero" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="auto_descricao_1">Descrição da Infração:</label>
+                        <textarea id="auto_descricao_1" class="auto-descricao" rows="3" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <button id="add-auto" class="btn btn-secondary add-btn no-print">Adicionar outro Auto</button>
+        </div>
+        
+        <div class="form-section">
+            <h2>Termos</h2>
+            <div id="termos-container">
+                <div class="termo-item">
+                    <div class="form-group">
+                        <label for="termo_tipo_1">Tipo de Termo:</label>
+                        <select id="termo_tipo_1" class="termo-tipo" required>
+                            <option value="">Selecione...</option>
+                            <option value="notificacao">Termo de Notificação</option>
+                            <option value="apreensao">Termo de Apreensão</option>
+                            <option value="embargo">Termo de Embargo</option>
+                            <option value="soltura">Termo de Soltura</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="termo_numero_1">Número do Termo:</label>
+                        <input type="text" id="termo_numero_1" class="termo-numero" required>
+                    </div>
+                </div>
+            </div>
+            <button id="add-termo" class="btn btn-secondary add-btn no-print">Adicionar outro Termo</button>
+        </div>
+        
+        <div class="form-section">
+            <h2>Descrição da Ação</h2>
+            <div class="form-group">
+                <label for="descricao">Descrição detalhada do que foi realizado em campo:</label>
+                <textarea id="descricao" rows="6" required></textarea>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Registro Fotográfico</h2>
+            
+            <div class="form-group no-print">
+                <label for="photo-upload">Adicionar Fotos:</label>
+                <input type="file" id="photo-upload" accept="image/*" multiple>
+                <small>Selecione uma ou mais fotos para upload</small>
+            </div>
+            
+            <div id="photo-container" class="photo-container">
+                <!-- Template para novas fotos -->
+                <div class="photo-item" style="display: none;">
+                    <div class="photo-number">Figura 1</div>
+                    <img class="photo-preview" src="">
+                    <div class="form-group">
+                        <label>Legenda:</label>
+                        <input type="text" class="photo-caption" placeholder="Descreva a foto">
+                    </div>
+                    <div class="form-group">
+                        <label>Coordenadas:</label>
+                        <input type="text" class="photo-coords" readonly>
+                    </div>
+                    <button class="btn btn-secondary remove-photo no-print">Remover</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h2>Assinatura do Fiscal</h2>
+            <div class="form-group">
+                <label for="fiscal_nome">Nome do Fiscal:</label>
+                <input type="text" id="fiscal_nome" required>
+            </div>
+            <div class="form-group">
+                <label for="fiscal_matricula">Matrícula:</label>
+                <input type="text" id="fiscal_matricula" required>
+            </div>
+            <div class="form-group">
+                <label>Assinatura:</label>
+                <canvas id="signature-pad" width="400" height="200"></canvas>
+                <button id="clear-signature" class="btn btn-secondary signature-clear no-print">Limpar Assinatura</button>
+            </div>
+        </div>
+        
+        <div class="action-buttons no-print">
+            <button id="print-report" class="btn">Imprimir Relatório</button>
+            <button id="save-data" class="btn btn-secondary">Salvar Dados</button>
+            <button id="load-data" class="btn btn-secondary">Carregar Dados</button>
+        </div>
+        
+        <div class="footer">
+            <p>Todos os direitos reservados &copy; <span id="current-year"></span> - Iram Mendes Jr - Analista Ambiental - ICMBio</p>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    
+    <script>
+        // Variáveis globais
+        let map;
+        let marker;
+        let signaturePad;
+        let watchPositionId = null;
+        let autoCount = 1;
+        let termoCount = 1;
+        let photoCount = 0;
+        let isOnline = navigator.onLine;
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configura data e hora atuais
+            const now = new Date();
+            document.getElementById('data').value = now.toISOString().split('T')[0];
+            document.getElementById('hora').value = now.toTimeString().substring(0, 5);
+            document.getElementById('current-year').textContent = now.getFullYear();
+            
+            // Inicializa o mapa
+            initMap(-15.788, -47.879);
+            
+            // Inicializa a área de assinatura
+            const canvas = document.getElementById('signature-pad');
+            signaturePad = new SignaturePad(canvas);
+            
+            // Configura eventos
+            setupEventListeners();
+            
+            // Atualiza status da conexão
+            updateConnectionStatus();
+        });
+        
+        // Configura os listeners de eventos
+        function setupEventListeners() {
+            // Botões de localização
+            document.getElementById('get-location').addEventListener('click', getLocation);
+            document.getElementById('manual-coords').addEventListener('click', manualCoords);
+            
+            // Botões de formulário
+            document.getElementById('add-auto').addEventListener('click', addAuto);
+            document.getElementById('add-termo').addEventListener('click', addTermo);
+            
+            // Upload de fotos
+            document.getElementById('photo-upload').addEventListener('change', handlePhotoUpload);
+            
+            // Ações principais
+            document.getElementById('print-report').addEventListener('click', printReport);
+            document.getElementById('save-data').addEventListener('click', saveData);
+            document.getElementById('load-data').addEventListener('click', loadData);
+            document.getElementById('clear-signature').addEventListener('click', clearSignature);
+            
+            // Monitora mudanças na conexão
+            window.addEventListener('online', updateConnectionStatus);
+            window.addEventListener('offline', updateConnectionStatus);
+        }
+        
+        // Inicializa o mapa
+        function initMap(lat, lng) {
+            if (map) {
+                map.setView([lat, lng], 15);
+                if (marker) {
+                    marker.setLatLng([lat, lng]);
+                }
+                return;
+            }
+            
+            map = L.map('map').setView([lat, lng], 15);
+            
+            // Camadas base
+            const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            });
+            
+            const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: 'Imagens © Google Satellite'
+            });
+            
+            // Adiciona camada padrão
+            if (isOnline) {
+                satelliteLayer.addTo(map);
+            } else {
+                document.getElementById('map').innerHTML = 
+                    '<p style="text-align: center; padding-top: 180px;">Mapa offline não disponível. Conecte-se à internet para carregar mapas.</p>';
+            }
+            
+            // Adiciona marcador
+            marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            
+            // Atualiza coordenadas quando o marcador é movido
+            marker.on('dragend', function() {
+                const newLatLng = marker.getLatLng();
+                updateCoordinates(newLatLng.lat, newLatLng.lng);
+            });
+            
+            // Atualiza coordenadas quando clica no mapa
+            map.on('click', function(e) {
+                updateCoordinates(e.latlng.lat, e.latlng.lng);
+                if (!marker) {
+                    marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+                    marker.on('dragend', function() {
+                        const newLatLng = marker.getLatLng();
+                        updateCoordinates(newLatLng.lat, newLatLng.lng);
+                    });
+                } else {
+                    marker.setLatLng(e.latlng);
+                }
+            });
+        }
+        
+        // Obtém a localização atual
+        function getLocation() {
+            const coordError = document.getElementById('coord-error');
+            coordError.textContent = 'Obtendo localização...';
+            
+            if (!navigator.geolocation) {
+                coordError.textContent = 'Geolocalização não é suportada pelo seu navegador';
+                return;
+            }
+            
+            // Para qualquer rastreamento anterior
+            if (watchPositionId) {
+                navigator.geolocation.clearWatch(watchPositionId);
+            }
+            
+            const rastreamentoAtivo = document.getElementById('rastreamento').checked;
+            
+            if (rastreamentoAtivo) {
+                // Rastreamento contínuo
+                watchPositionId = navigator.geolocation.watchPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        updateCoordinates(lat, lng);
+                        initMap(lat, lng);
+                        coordError.textContent = 'Rastreamento ativo - coordenadas atualizadas';
+                    },
+                    error => {
+                        handleGeolocationError(error);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                // Única leitura
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        updateCoordinates(lat, lng);
+                        initMap(lat, lng);
+                        coordError.textContent = '';
+                    },
+                    error => {
+                        handleGeolocationError(error);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            }
+        }
+        
+        // Trata erros de geolocalização
+        function handleGeolocationError(error) {
+            const coordError = document.getElementById('coord-error');
+            let errorMessage;
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = "Permissão de localização negada pelo usuário";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = "Informações de localização indisponíveis";
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = "Tempo limite para obter localização excedido";
+                    break;
+                default:
+                    errorMessage = "Ocorreu um erro desconhecido";
+            }
+            
+            coordError.textContent = "Erro: " + errorMessage;
+        }
+        
+        // Permite inserir coordenadas manualmente
+        function manualCoords() {
+            const lat = prompt("Digite a latitude (ex: -15.788):");
+            const lng = prompt("Digite a longitude (ex: -47.879):");
+            
+            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                updateCoordinates(parseFloat(lat), parseFloat(lng));
+                initMap(parseFloat(lat), parseFloat(lng));
+            } else {
+                alert("Coordenadas inválidas. Por favor, insira valores numéricos.");
+            }
+        }
+        
+        // Atualiza os campos de coordenadas
+        function updateCoordinates(lat, lng) {
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lng.toFixed(6);
+            updateDMSCoordinates(lat, lng);
+            document.getElementById('coord-error').textContent = '';
+        }
+        
+        // Converte para graus, minutos e segundos
+        function decimalToDMS(decimal, isLatitude) {
+            const absDecimal = Math.abs(decimal);
+            const degrees = Math.floor(absDecimal);
+            const minutesNotTruncated = (absDecimal - degrees) * 60;
+            const minutes = Math.floor(minutesNotTruncated);
+            const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(2);
+            
+            const direction = isLatitude 
+                ? (decimal >= 0 ? 'N' : 'S') 
+                : (decimal >= 0 ? 'E' : 'W');
+            
+            return `${degrees}° ${minutes}' ${seconds}" ${direction}`;
+        }
+        
+        // Atualiza as coordenadas DMS
+        function updateDMSCoordinates(lat, lng) {
+            const latDMS = decimalToDMS(lat, true);
+            const lngDMS = decimalToDMS(lng, false);
+            document.getElementById('dms-coordinates').textContent = 
+                `Latitude: ${latDMS} | Longitude: ${lngDMS}`;
+        }
+        
+        // Adiciona um novo auto de infração
+        function addAuto() {
+            autoCount++;
+            const newAuto = document.createElement('div');
+            newAuto.className = 'auto-item';
+            newAuto.innerHTML = `
+                <div class="form-group">
+                    <label for="auto_numero_${autoCount}">Número do Auto de Infração:</label>
+                    <input type="text" id="auto_numero_${autoCount}" class="auto-numero" required>
+                </div>
+                <div class="form-group">
+                    <label for="auto_descricao_${autoCount}">Descrição da Infração:</label>
+                    <textarea id="auto_descricao_${autoCount}" class="auto-descricao" rows="3" required></textarea>
+                </div>
+                <button class="btn btn-secondary remove-auto no-print" data-id="${autoCount}">Remover Auto</button>
+            `;
+            document.getElementById('autos-container').appendChild(newAuto);
+            
+            // Adiciona evento para remover o auto
+            newAuto.querySelector('.remove-auto').addEventListener('click', function() {
+                if (autoCount > 1) {
+                    document.getElementById('autos-container').removeChild(newAuto);
+                    autoCount--;
+                } else {
+                    alert("Pelo menos um auto de infração deve ser mantido.");
+                }
+            });
+        }
+        
+        // Adiciona um novo termo
+        function addTermo() {
+            termoCount++;
+            const newTermo = document.createElement('div');
+            newTermo.className = 'termo-item';
+            newTermo.innerHTML = `
+                <div class="form-group">
+                    <label for="termo_tipo_${termoCount}">Tipo de Termo:</label>
+                    <select id="termo_tipo_${termoCount}" class="termo-tipo" required>
+                        <option value="">Selecione...</option>
+                        <option value="notificacao">Termo de Notificação</option>
+                        <option value="apreensao">Termo de Apreensão</option>
+                        <option value="embargo">Termo de Embargo</option>
+                        <option value="soltura">Termo de Soltura</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="termo_numero_${termoCount}">Número do Termo:</label>
+                    <input type="text" id="termo_numero_${termoCount}" class="termo-numero" required>
+                </div>
+                <button class="btn btn-secondary remove-termo no-print" data-id="${termoCount}">Remover Termo</button>
+            `;
+            document.getElementById('termos-container').appendChild(newTermo);
+            
+            // Adiciona evento para remover o termo
+            newTermo.querySelector('.remove-termo').addEventListener('click', function() {
+                if (termoCount > 1) {
+                    document.getElementById('termos-container').removeChild(newTermo);
+                    termoCount--;
+                } else {
+                    alert("Pelo menos um termo deve ser mantido.");
+                }
+            });
+        }
+        
+        // Manipula o upload de fotos
+        function handlePhotoUpload(e) {
+            const files = e.target.files;
+            const lat = parseFloat(document.getElementById('latitude').value);
+            const lng = parseFloat(document.getElementById('longitude').value);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                alert("Por favor, defina as coordenadas antes de adicionar fotos.");
+                return;
+            }
+            
+            for (let i = 0; i < files.length; i++) {
+                addPhoto(files[i], { lat, lng });
+            }
+            
+            e.target.value = '';
+        }
+        
+        // Adiciona uma foto ao relatório
+        function addPhoto(file, coords) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                photoCount++;
+                const photoContainer = document.getElementById('photo-container');
+                const template = photoContainer.querySelector('.photo-item');
+                const newPhoto = template.cloneNode(true);
+                
+                newPhoto.style.display = 'block';
+                newPhoto.querySelector('.photo-number').textContent = `Figura ${photoCount}`;
+                newPhoto.querySelector('.photo-preview').src = e.target.result;
+                newPhoto.querySelector('.photo-coords').value = 
+                    `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+                
+                newPhoto.querySelector('.remove-photo').addEventListener('click', function() {
+                    photoContainer.removeChild(newPhoto);
+                    updatePhotoNumbers();
+                });
+                
+                photoContainer.appendChild(newPhoto);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Atualiza a numeração das fotos
+        function updatePhotoNumbers() {
+            const photos = document.querySelectorAll('.photo-item:not([style*="display: none"])');
+            photoCount = 0;
+            
+            photos.forEach((photo, index) => {
+                photoCount++;
+                photo.querySelector('.photo-number').textContent = `Figura ${photoCount}`;
+            });
+        }
+        
+        // Limpa a assinatura
+        function clearSignature() {
+            signaturePad.clear();
+        }
+        
+        // Imprime o relatório
+        function printReport() {
+            window.print();
+        }
+        
+        // Salva os dados no localStorage
+        function saveData() {
+            if (!validateForm()) {
+                alert('Por favor, preencha todos os campos obrigatórios antes de salvar.');
+                return;
+            }
+            
+            const reportData = {
+                data: document.getElementById('data').value,
+                hora: document.getElementById('hora').value,
+                local: document.getElementById('local').value,
+                infrator_nome: document.getElementById('infrator_nome').value,
+                infrator_documento: document.getElementById('infrator_documento').value,
+                latitude: document.getElementById('latitude').value,
+                longitude: document.getElementById('longitude').value,
+                descricao: document.getElementById('descricao').value,
+                fiscal_nome: document.getElementById('fiscal_nome').value,
+                fiscal_matricula: document.getElementById('fiscal_matricula').value,
+                signature: signaturePad.isEmpty() ? null : signaturePad.toDataURL(),
+                autos: [],
+                termos: [],
+                photos: []
+            };
+            
+            // Coleta dados dos autos
+            document.querySelectorAll('.auto-item').forEach((auto, index) => {
+                const autoId = index + 1;
+                reportData.autos.push({
+                    numero: document.getElementById(`auto_numero_${autoId}`).value,
+                    descricao: document.getElementById(`auto_descricao_${autoId}`).value
+                });
+            });
+            
+            // Coleta dados dos termos
+            document.querySelectorAll('.termo-item').forEach((termo, index) => {
+                const termoId = index + 1;
+                reportData.termos.push({
+                    tipo: document.getElementById(`termo_tipo_${termoId}`).value,
+                    numero: document.getElementById(`termo_numero_${termoId}`).value
+                });
+            });
+            
+            // Coleta dados das fotos
+            document.querySelectorAll('.photo-item:not([style*="display: none"])').forEach(photo => {
+                reportData.photos.push({
+                    caption: photo.querySelector('.photo-caption').value,
+                    coords: photo.querySelector('.photo-coords').value,
+                    src: photo.querySelector('.photo-preview').src
+                });
+            });
+            
+            try {
+                localStorage.setItem('ambientalReportData', JSON.stringify(reportData));
+                alert('Dados salvos com sucesso!');
+            } catch (e) {
+                alert('Erro ao salvar dados: ' + e.message);
+            }
+        }
+        
+        // Carrega os dados do localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('ambientalReportData');
+            if (!savedData) {
+                alert('Nenhum dado salvo encontrado.');
+                return;
+            }
+            
+            try {
+                const reportData = JSON.parse(savedData);
+                
+                // Limpa os containers antes de carregar novos dados
+                document.getElementById('autos-container').innerHTML = '';
+                document.getElementById('termos-container').innerHTML = '';
+                document.getElementById('photo-container').innerHTML = '';
+                
+                // Reinicia os contadores
+                autoCount = 0;
+                termoCount = 0;
+                photoCount = 0;
+                
+                // Carrega dados básicos
+                document.getElementById('data').value = reportData.data || '';
+                document.getElementById('hora').value = reportData.hora || '';
+                document.getElementById('local').value = reportData.local || '';
+                document.getElementById('infrator_nome').value = reportData.infrator_nome || '';
+                document.getElementById('infrator_documento').value = reportData.infrator_documento || '';
+                document.getElementById('latitude').value = reportData.latitude || '';
+                document.getElementById('longitude').value = reportData.longitude || '';
+                document.getElementById('descricao').value = reportData.descricao || '';
+                document.getElementById('fiscal_nome').value = reportData.fiscal_nome || '';
+                document.getElementById('fiscal_matricula').value = reportData.fiscal_matricula || '';
+                
+                if (reportData.signature) {
+                    signaturePad.fromDataURL(reportData.signature);
+                }
+                
+                if (reportData.latitude && reportData.longitude) {
+                    updateDMSCoordinates(
+                        parseFloat(reportData.latitude),
+                        parseFloat(reportData.longitude)
+                    );
+                    
+                    initMap(
+                        parseFloat(reportData.latitude),
+                        parseFloat(reportData.longitude)
+                    );
+                }
+                
+                // Carrega autos de infração
+                if (reportData.autos && reportData.autos.length > 0) {
+                    reportData.autos.forEach((auto, index) => {
+                        if (index === 0) {
+                            // Usa o primeiro auto que já existe
+                            document.getElementById('auto_numero_1').value = auto.numero || '';
+                            document.getElementById('auto_descricao_1').value = auto.descricao || '';
+                            autoCount = 1;
+                        } else {
+                            // Adiciona novos autos para os demais
+                            addAuto();
+                            const autoId = index + 1;
+                            document.getElementById(`auto_numero_${autoId}`).value = auto.numero || '';
+                            document.getElementById(`auto_descricao_${autoId}`).value = auto.descricao || '';
+                        }
+                    });
+                }
+                
+                // Carrega termos
+                if (reportData.termos && reportData.termos.length > 0) {
+                    reportData.termos.forEach((termo, index) => {
+                        if (index === 0) {
+                            // Usa o primeiro termo que já existe
+                            document.getElementById('termo_tipo_1').value = termo.tipo || '';
+                            document.getElementById('termo_numero_1').value = termo.numero || '';
+                            termoCount = 1;
+                        } else {
+                            // Adiciona novos termos para os demais
+                            addTermo();
+                            const termoId = index + 1;
+                            document.getElementById(`termo_tipo_${termoId}`).value = termo.tipo || '';
+                            document.getElementById(`termo_numero_${termoId}`).value = termo.numero || '';
+                        }
+                    });
+                }
+                
+                // Carrega fotos
+                if (reportData.photos && reportData.photos.length > 0) {
+                    reportData.photos.forEach(photo => {
+                        if (photo.src) {
+                            // Simula um objeto File para carregar a foto
+                            const fakeFile = {
+                                name: 'foto_carregada.png',
+                                type: 'image/png'
+                            };
+                            
+                            // Cria um objeto de coordenadas
+                            const coords = {
+                                lat: parseFloat(photo.coords.split(',')[0]),
+                                lng: parseFloat(photo.coords.split(',')[1])
+                            };
+                            
+                            // Cria um elemento de foto manualmente
+                            photoCount++;
+                            const photoContainer = document.getElementById('photo-container');
+                            const template = photoContainer.querySelector('.photo-item');
+                            const newPhoto = template.cloneNode(true);
+                            
+                            newPhoto.style.display = 'block';
+                            newPhoto.querySelector('.photo-number').textContent = `Figura ${photoCount}`;
+                            newPhoto.querySelector('.photo-preview').src = photo.src;
+                            newPhoto.querySelector('.photo-caption').value = photo.caption || '';
+                            newPhoto.querySelector('.photo-coords').value = photo.coords || '';
+                            
+                            newPhoto.querySelector('.remove-photo').addEventListener('click', function() {
+                                photoContainer.removeChild(newPhoto);
+                                updatePhotoNumbers();
+                            });
+                            
+                            photoContainer.appendChild(newPhoto);
+                        }
+                    });
+                }
+                
+                alert('Dados carregados com sucesso!');
+            } catch (e) {
+                alert('Erro ao carregar dados: ' + e.message);
+            }
+        }
+        
+        // Valida o formulário
+        function validateForm() {
+            // Verifica campos obrigatórios
+            const requiredFields = [
+                'data', 'hora', 'local', 'infrator_nome', 'infrator_documento',
+                'latitude', 'longitude', 'descricao', 'fiscal_nome', 'fiscal_matricula'
+            ];
+            
+            for (const fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.focus();
+                    return false;
+                }
+            }
+            
+            // Verifica pelo menos um auto de infração
+            const autoNumeros = document.querySelectorAll('.auto-numero');
+            let hasAuto = false;
+            autoNumeros.forEach(auto => {
+                if (auto.value.trim()) hasAuto = true;
+            });
+            
+            if (!hasAuto) {
+                alert('Pelo menos um auto de infração deve ser preenchido.');
+                return false;
+            }
+            
+            // Verifica assinatura
+            if (signaturePad.isEmpty()) {
+                alert('Por favor, forneça sua assinatura.');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Atualiza o status da conexão
+        function updateConnectionStatus() {
+            isOnline = navigator.onLine;
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            if (isOnline) {
+                connectionStatus.textContent = 'Online';
+                connectionStatus.className = 'connection-status online';
+            } else {
+                connectionStatus.textContent = 'Offline';
+                connectionStatus.className = 'connection-status offline';
+            }
+        }
+    </script>
+</body>
+</html>
