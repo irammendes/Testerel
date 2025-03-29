@@ -402,6 +402,9 @@
             
             // Atualiza status da conexão
             updateConnectionStatus();
+            
+            // Gera QR Code inicial
+            generateQRCode();
         });
         
         // Configura os listeners de eventos
@@ -743,7 +746,7 @@
                 descricao: document.getElementById('descricao').value,
                 fiscal_nome: document.getElementById('fiscal_nome').value,
                 fiscal_matricula: document.getElementById('fiscal_matricula').value,
-                signature: signaturePad.isEmpty() ? null : signaturePad.toDataURL(),
+                signature: signaturePad.isEmpty() ? null : signaturePad.toDataURL('image/png'),
                 autos: [],
                 termos: [],
                 photos: []
@@ -779,8 +782,15 @@
             try {
                 localStorage.setItem('ambientalReportData', JSON.stringify(reportData));
                 alert('Dados salvos com sucesso!');
+                
+                // Atualiza o QRCode com os dados atuais
+                generateQRCode();
             } catch (e) {
-                alert('Erro ao salvar dados: ' + e.message);
+                if (e.name === 'QuotaExceededError') {
+                    alert('O armazenamento está cheio. Não foi possível salvar os dados.');
+                } else {
+                    alert('Erro ao salvar dados: ' + e.message);
+                }
             }
         }
         
@@ -908,6 +918,9 @@
                 }
                 
                 alert('Dados carregados com sucesso!');
+                
+                // Atualiza o QRCode com os dados carregados
+                generateQRCode();
             } catch (e) {
                 alert('Erro ao carregar dados: ' + e.message);
             }
@@ -929,10 +942,9 @@
                 }
             }
             
-            // Verifica pelo menos um auto de infração
-            const autoNumeros = document.querySelectorAll('.auto-numero');
+            // Verifica pelo menos um auto de infração preenchido
             let hasAuto = false;
-            autoNumeros.forEach(auto => {
+            document.querySelectorAll('.auto-numero').forEach(auto => {
                 if (auto.value.trim()) hasAuto = true;
             });
             
@@ -958,10 +970,31 @@
             if (isOnline) {
                 connectionStatus.textContent = 'Online';
                 connectionStatus.className = 'connection-status online';
+                
+                // Recarrega o mapa se estiver offline
+                if (!map) {
+                    const lat = parseFloat(document.getElementById('latitude').value) || -15.788;
+                    const lng = parseFloat(document.getElementById('longitude').value) || -47.879;
+                    initMap(lat, lng);
+                }
             } else {
                 connectionStatus.textContent = 'Offline';
                 connectionStatus.className = 'connection-status offline';
             }
+        }
+        
+        // Gera QR Code com informações do relatório
+        function generateQRCode() {
+            const qrElement = document.getElementById('qrcode');
+            qrElement.innerHTML = '';
+            
+            // Cria um ID único baseado nos dados atuais
+            const reportId = `REL-${document.getElementById('data').value}-${document.getElementById('auto_numero_1').value || '000'}`;
+            
+            // Gera o QR Code
+            QRCode.toCanvas(qrElement, reportId, { width: 150 }, function(error) {
+                if (error) console.error('Erro ao gerar QR Code:', error);
+            });
         }
     </script>
 </body>
