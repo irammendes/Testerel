@@ -437,6 +437,7 @@
         <div class="action-buttons no-print">
             <button id="print-report" class="btn">Imprimir Relatório</button>
             <button id="generate-pdf" class="btn btn-secondary">Gerar PDF</button>
+            <button id="generate-excel" class="btn btn-secondary">Gerar Excel</button>
             <button id="save-data" class="btn btn-secondary">Salvar Dados</button>
             <button id="load-data" class="btn btn-secondary">Carregar Dados</button>
             <button id="clear-storage" class="btn btn-danger">Limpar Armazenamento</button>
@@ -453,6 +454,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <!-- Biblioteca para gerar Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     
     <script>
         // Variáveis globais
@@ -509,6 +512,7 @@
             // Ações principais
             document.getElementById('print-report').addEventListener('click', printReport);
             document.getElementById('generate-pdf').addEventListener('click', generatePDF);
+            document.getElementById('generate-excel').addEventListener('click', generateExcel);
             document.getElementById('save-data').addEventListener('click', saveData);
             document.getElementById('load-data').addEventListener('click', loadData);
             document.getElementById('clear-signature').addEventListener('click', clearSignature);
@@ -893,7 +897,7 @@
             }
         }
         
-        // Gera PDF - VERSÃO CORRIGIDA
+        // Gera PDF com 2 fotos por página
         function generatePDF() {
             if (!checkStorageSpace()) {
                 alert('Não é possível gerar PDF com armazenamento cheio.');
@@ -926,8 +930,12 @@
             const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
             const pageHeight = doc.internal.pageSize.getHeight() - padding - 40;
 
-            // Seleciona todas as seções do formulário
-            const sections = document.querySelectorAll('.form-section');
+            // Seleciona todas as seções do formulário (exceto fotos)
+            const sections = Array.from(document.querySelectorAll('.form-section')).filter(
+                section => !section.querySelector('.photo-container')
+            );
+            
+            // Processa seções de texto primeiro
             let currentHeight = padding + 20;
             let pageNumber = 1;
 
@@ -945,9 +953,10 @@
             };
 
             // Processa cada seção sequencialmente
-            const processSection = async (index) => {
+            const processTextSections = async (index) => {
                 if (index >= sections.length) {
-                    // Finaliza e salva o PDF
+                    // Após processar todas as seções de texto, processa as fotos
+                    await processPhotos();
                     doc.save('relatorio_ambiental.pdf');
                     document.body.removeChild(loadingMessage);
                     return;
@@ -976,7 +985,7 @@
                     }
 
                     // Adiciona cabeçalho
-                    addHeaderFooter(doc, pageNumber, sections.length);
+                    addHeaderFooter(doc, pageNumber, '...'); // Total de páginas será atualizado depois
                     
                     // Adiciona a imagem ao PDF
                     doc.addImage(imgData, 'PNG', padding, currentHeight, imgWidth, imgHeight);
@@ -985,7 +994,7 @@
                     currentHeight += imgHeight + 20;
 
                     // Processa próxima seção
-                    processSection(index + 1);
+                    processTextSections(index + 1);
                 } catch (error) {
                     document.body.removeChild(loadingMessage);
                     console.error('Erro ao gerar PDF:', error);
@@ -993,8 +1002,180 @@
                 }
             };
 
-            // Inicia o processamento
-            processSection(0);
+            // Processa as fotos - 2 por página
+            const processPhotos = async () => {
+                const photoItems = document.querySelectorAll('.photo-item:not([style*="display: none"])');
+                const photoCount = photoItems.length;
+                
+                if (photoCount === 0) return;
+
+                // Calcula quantas páginas de fotos serão necessárias
+                const photosPerPage = 2;
+                const photoPages = Math.ceil(photoCount / photosPerPage);
+                
+                // Largura e altura para cada foto na página
+                const photoWidth = pageWidth;
+                const photoHeight = (pageHeight - 40) / photosPerPage; // 40 é o espaço entre fotos
+                
+                for (let i = 0; i < photoCount; i++) {
+                    const photoIndex = i + 1;
+                    const photo = photoItems[i];
+                    
+                    // Se for a primeira foto da página ou primeira foto no geral, adiciona nova página
+                    if (i % photosPerPage === 0) {
+                        if (i > 0 || sections.length > 0) {
+                            doc.addPage();
+                        }
+                        pageNumber++;
+                        currentHeight = padding + 20;
+                        addHeaderFooter(doc, pageNumber, pageNumber + photoPages - Math.ceil((i + 1) / photosPerPage));
+                    }
+                    
+                    try {
+                        // Cria um container temporário para a foto e sua legenda
+                        const tempContainer = document.createElement('div');
+                        tempContainer.style.width = photoWidth + 'px';
+                        tempContainer.style.padding = '10px';
+                        tempContainer.style.boxSizing = 'border-box';
+                        
+                        // Clona a foto e seus elementos relacionados
+                        const photoClone = photo.cloneNode(true);
+                        photoClone.style.width = '100%';
+                        photoClone.style.margin = '0';
+                        photoClone.style.padding = '0';
+                        
+                        // Remove o botão de remover (não é necessário no PDF)
+                        const removeBtn = photoClone.querySelector('.remove-photo');
+                        if (removeBtn) removeBtn.remove();
+                        
+                        tempContainer.appendChild(photoClone);
+                        document.body.appendChild(tempContainer);
+                        
+                        const canvas = await html2canvas(tempContainer, {
+                            scale: 2,
+                            logging: false,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#FFFFFF'
+                        });
+                        
+                        document.body.removeChild(tempContainer);
+                        
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgHeight = (canvas.height * photoWidth) / canvas.width;
+                        
+                        // Ajusta a altura da imagem para caber no espaço designado
+                        const finalHeight = Math.min(imgHeight, photoHeight);
+                        
+                        // Adiciona a foto ao PDF
+                        doc.addImage(
+                            imgData, 
+                            'PNG', 
+                            padding, 
+                            currentHeight, 
+                            photoWidth, 
+                            finalHeight
+                        );
+                        
+                        // Atualiza a altura para a próxima foto
+                        currentHeight += finalHeight + 20;
+                        
+                    } catch (error) {
+                        console.error('Erro ao processar foto:', error);
+                    }
+                }
+            };
+
+            // Inicia o processamento das seções de texto
+            processTextSections(0);
+        }
+        
+        // Gera planilha Excel com os dados dos infratores
+        function generateExcel() {
+            if (!validateForm()) {
+                alert('Por favor, preencha todos os campos obrigatórios antes de gerar a planilha.');
+                return;
+            }
+
+            // Coletar os dados do formulário
+            const reportData = {
+                data: document.getElementById('data').value,
+                hora: document.getElementById('hora').value,
+                local: document.getElementById('local').value,
+                infrator_nome: document.getElementById('infrator_nome').value,
+                infrator_documento: document.getElementById('infrator_documento').value,
+                latitude: document.getElementById('latitude').value,
+                longitude: document.getElementById('longitude').value,
+                fiscal_nome: document.getElementById('fiscal_nome').value,
+                fiscal_matricula: document.getElementById('fiscal_matricula').value,
+                descricao: document.getElementById('descricao').value,
+                autos: [],
+                termos: []
+            };
+
+            // Coletar dados dos autos
+            document.querySelectorAll('.auto-item').forEach((auto, index) => {
+                const autoId = index + 1;
+                reportData.autos.push({
+                    numero: document.getElementById(`auto_numero_${autoId}`).value,
+                    descricao: document.getElementById(`auto_descricao_${autoId}`).value
+                });
+            });
+
+            // Coletar dados dos termos
+            document.querySelectorAll('.termo-item').forEach((termo, index) => {
+                const termoId = index + 1;
+                reportData.termos.push({
+                    tipo: document.getElementById(`termo_tipo_${termoId}`).value,
+                    numero: document.getElementById(`termo_numero_${termoId}`).value
+                });
+            });
+
+            // Preparar os dados para a planilha
+            const excelData = [
+                ["Relatório Fotográfico Ambiental - Banco de Dados de Infratores"],
+                ["Gerado em:", new Date().toLocaleString()],
+                [],
+                ["DADOS PRINCIPAIS"],
+                ["Data", reportData.data],
+                ["Hora", reportData.hora],
+                ["Local", reportData.local],
+                ["Nome do Infrator", reportData.infrator_nome],
+                ["CPF/CNPJ", reportData.infrator_documento],
+                ["Latitude", reportData.latitude],
+                ["Longitude", reportData.longitude],
+                ["Fiscal", reportData.fiscal_nome],
+                ["Matrícula", reportData.fiscal_matricula],
+                ["Descrição da Ação", reportData.descricao],
+                [],
+                ["AUTOS DE INFRAÇÃO"]
+            ];
+
+            // Adicionar cabeçalhos dos autos
+            excelData.push(["Número", "Descrição"]);
+
+            // Adicionar dados dos autos
+            reportData.autos.forEach(auto => {
+                excelData.push([auto.numero, auto.descricao]);
+            });
+
+            excelData.push([], ["TERMOS"]);
+
+            // Adicionar cabeçalhos dos termos
+            excelData.push(["Tipo", "Número"]);
+
+            // Adicionar dados dos termos
+            reportData.termos.forEach(termo => {
+                excelData.push([termo.tipo, termo.numero]);
+            });
+
+            // Criar a planilha
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Infrações");
+
+            // Gerar o arquivo Excel
+            XLSX.writeFile(wb, `Banco_Dados_Infratores_${reportData.data.replace(/-/g, '')}.xlsx`);
         }
         
         // Salva os dados no localStorage
