@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Fotográfico Ambiental 3.4</title>
+    <title>Relatório Fotográfico Ambiental 3.5</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body {
@@ -158,13 +158,14 @@
             font-size: 0.9em;
             color: #666;
         }
-        .termo-item, .auto-item {
+        .termo-item, .auto-item, .infrator-item {
             border: 1px solid #ddd;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
             border-radius: 4px;
             page-break-inside: avoid;
             break-inside: avoid;
+            background-color: #f9f9f9;
         }
         .add-btn {
             margin-bottom: 15px;
@@ -200,6 +201,28 @@
             font-size: 0.8em;
             color: #666;
             font-style: italic;
+        }
+        .infrator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .infrator-title {
+            font-weight: bold;
+            color: #006400;
+        }
+        .remove-infrator {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .remove-infrator:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         
         /* Estilos específicos para impressão/PDF */
@@ -281,7 +304,7 @@
     
     <div class="container" id="relatorio">
         <div class="header">
-            <h1>Relatório Fotográfico Ambiental - Versão 3.4</h1>
+            <h1>Relatório Fotográfico Ambiental - Versão 3.5</h1>
             <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
             <div id="qrcode"></div>
         </div>
@@ -304,42 +327,61 @@
                 <label for="local">Local da Fiscalização:</label>
                 <input type="text" id="local" required>
             </div>
-            
-            <div class="form-group">
-                <label for="infrator_nome">Nome do Infrator:</label>
-                <input type="text" id="infrator_nome" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="infrator_documento">CPF/CNPJ:</label>
-                <input type="text" id="infrator_documento" required>
-            </div>
-            
-            <div class="form-group">
-                <label>Coordenadas Geográficas (Graus Decimais):</label>
-                <div class="coordinates">
-                    <input type="text" id="latitude" class="coord-input" placeholder="Latitude" readonly>
-                    <input type="text" id="longitude" class="coord-input" placeholder="Longitude" readonly>
-                </div>
-                <div id="coord-error" class="error"></div>
-                <div class="form-group">
-                    <input type="checkbox" id="rastreamento" checked>
-                    <label for="rastreamento" style="display: inline;">Atualizar coordenadas automaticamente</label>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Coordenadas em Graus, Minutos e Segundos:</label>
-                <div id="dms-coordinates" class="dms-coordinates">Não disponível</div>
-            </div>
-            
-            <div class="buttons no-print">
-                <button id="get-location" class="btn">Obter Localização Atual</button>
-                <button id="manual-coords" class="btn btn-secondary">Inserir Coordenadas Manualmente</button>
-            </div>
-            
-            <div id="map"></div>
         </div>
+        
+        <div class="form-section">
+            <h2>Infratores</h2>
+            <div id="infratores-container">
+                <div class="infrator-item">
+                    <div class="infrator-header">
+                        <span class="infrator-title">Infrator #1</span>
+                        <button class="remove-infrator no-print" data-id="1" disabled>Remover</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="infrator_nome_1">Nome do Infrator:</label>
+                        <input type="text" id="infrator_nome_1" class="infrator-nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="infrator_documento_1">CPF/CNPJ:</label>
+                        <input type="text" id="infrator_documento_1" class="infrator-documento" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="infrator_endereco_1">Endereço:</label>
+                        <input type="text" id="infrator_endereco_1" class="infrator-endereco">
+                    </div>
+                    <div class="form-group">
+                        <label for="infrator_contato_1">Contato:</label>
+                        <input type="text" id="infrator_contato_1" class="infrator-contato">
+                    </div>
+                </div>
+            </div>
+            <button id="add-infrator" class="btn btn-secondary add-btn no-print">Adicionar Infrator</button>
+        </div>
+        
+        <div class="form-group">
+            <label>Coordenadas Geográficas (Graus Decimais):</label>
+            <div class="coordinates">
+                <input type="text" id="latitude" class="coord-input" placeholder="Latitude" readonly>
+                <input type="text" id="longitude" class="coord-input" placeholder="Longitude" readonly>
+            </div>
+            <div id="coord-error" class="error"></div>
+            <div class="form-group">
+                <input type="checkbox" id="rastreamento" checked>
+                <label for="rastreamento" style="display: inline;">Atualizar coordenadas automaticamente</label>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Coordenadas em Graus, Minutos e Segundos:</label>
+            <div id="dms-coordinates" class="dms-coordinates">Não disponível</div>
+        </div>
+        
+        <div class="buttons no-print">
+            <button id="get-location" class="btn">Obter Localização Atual</button>
+            <button id="manual-coords" class="btn btn-secondary">Inserir Coordenadas Manualmente</button>
+        </div>
+        
+        <div id="map"></div>
         
         <div class="form-section">
             <h2>Autos de Infração</h2>
@@ -437,6 +479,7 @@
         <div class="action-buttons no-print">
             <button id="print-report" class="btn">Imprimir Relatório</button>
             <button id="generate-pdf" class="btn btn-secondary">Gerar PDF</button>
+            <button id="generate-word" class="btn btn-secondary">Gerar Word</button>
             <button id="generate-excel" class="btn btn-secondary">Gerar Excel</button>
             <button id="save-data" class="btn btn-secondary">Salvar Dados</button>
             <button id="load-data" class="btn btn-secondary">Carregar Dados</button>
@@ -448,14 +491,16 @@
         </div>
     </div>
 
+    <!-- Bibliotecas JavaScript -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-    <!-- Biblioteca para gerar Excel -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
     <script>
         // Variáveis globais
@@ -466,6 +511,7 @@
         let autoCount = 1;
         let termoCount = 1;
         let photoCount = 0;
+        let infratorCount = 1;
         let isOnline = navigator.onLine;
         
         // Inicialização
@@ -505,6 +551,7 @@
             // Botões de formulário
             document.getElementById('add-auto').addEventListener('click', addAuto);
             document.getElementById('add-termo').addEventListener('click', addTermo);
+            document.getElementById('add-infrator').addEventListener('click', addInfrator);
             
             // Upload de fotos
             document.getElementById('photo-upload').addEventListener('change', handlePhotoUpload);
@@ -512,6 +559,7 @@
             // Ações principais
             document.getElementById('print-report').addEventListener('click', printReport);
             document.getElementById('generate-pdf').addEventListener('click', generatePDF);
+            document.getElementById('generate-word').addEventListener('click', generateWord);
             document.getElementById('generate-excel').addEventListener('click', generateExcel);
             document.getElementById('save-data').addEventListener('click', saveData);
             document.getElementById('load-data').addEventListener('click', loadData);
@@ -523,7 +571,7 @@
             window.addEventListener('offline', updateConnectionStatus);
         }
         
-        // Inicializa o mapa
+        // Funções do mapa e geolocalização (manter as mesmas)
         function initMap(lat, lng) {
             if (map) {
                 map.setView([lat, lng], 15);
@@ -576,7 +624,6 @@
             });
         }
         
-        // Obtém a localização atual
         function getLocation() {
             const coordError = document.getElementById('coord-error');
             coordError.textContent = 'Obtendo localização...';
@@ -626,7 +673,6 @@
             }
         }
         
-        // Trata erros de geolocalização
         function handleGeolocationError(error) {
             const coordError = document.getElementById('coord-error');
             let errorMessage;
@@ -648,7 +694,6 @@
             coordError.textContent = "Erro: " + errorMessage;
         }
         
-        // Permite inserir coordenadas manualmente
         function manualCoords() {
             const lat = prompt("Digite a latitude (ex: -15.788):");
             const lng = prompt("Digite a longitude (ex: -47.879):");
@@ -661,7 +706,6 @@
             }
         }
         
-        // Atualiza os campos de coordenadas
         function updateCoordinates(lat, lng) {
             document.getElementById('latitude').value = lat.toFixed(6);
             document.getElementById('longitude').value = lng.toFixed(6);
@@ -669,7 +713,6 @@
             document.getElementById('coord-error').textContent = '';
         }
         
-        // Converte para graus, minutos e segundos
         function decimalToDMS(decimal, isLatitude) {
             const absDecimal = Math.abs(decimal);
             const degrees = Math.floor(absDecimal);
@@ -684,7 +727,6 @@
             return `${degrees}° ${minutes}' ${seconds}" ${direction}`;
         }
         
-        // Atualiza as coordenadas DMS
         function updateDMSCoordinates(lat, lng) {
             const latDMS = decimalToDMS(lat, true);
             const lngDMS = decimalToDMS(lng, false);
@@ -692,7 +734,7 @@
                 `Latitude: ${latDMS} | Longitude: ${lngDMS}`;
         }
         
-        // Adiciona um novo auto de infração
+        // Funções para adicionar elementos dinâmicos
         function addAuto() {
             autoCount++;
             const newAuto = document.createElement('div');
@@ -710,7 +752,6 @@
             `;
             document.getElementById('autos-container').appendChild(newAuto);
             
-            // Adiciona evento para remover o auto
             newAuto.querySelector('.remove-auto').addEventListener('click', function() {
                 if (autoCount > 1) {
                     document.getElementById('autos-container').removeChild(newAuto);
@@ -721,7 +762,6 @@
             });
         }
         
-        // Adiciona um novo termo
         function addTermo() {
             termoCount++;
             const newTermo = document.createElement('div');
@@ -745,7 +785,6 @@
             `;
             document.getElementById('termos-container').appendChild(newTermo);
             
-            // Adiciona evento para remover o termo
             newTermo.querySelector('.remove-termo').addEventListener('click', function() {
                 if (termoCount > 1) {
                     document.getElementById('termos-container').removeChild(newTermo);
@@ -756,7 +795,43 @@
             });
         }
         
-        // Manipula o upload de fotos
+        function addInfrator() {
+            infratorCount++;
+            const newInfrator = document.createElement('div');
+            newInfrator.className = 'infrator-item';
+            newInfrator.innerHTML = `
+                <div class="infrator-header">
+                    <span class="infrator-title">Infrator #${infratorCount}</span>
+                    <button class="remove-infrator no-print" data-id="${infratorCount}">Remover</button>
+                </div>
+                <div class="form-group">
+                    <label for="infrator_nome_${infratorCount}">Nome do Infrator:</label>
+                    <input type="text" id="infrator_nome_${infratorCount}" class="infrator-nome" required>
+                </div>
+                <div class="form-group">
+                    <label for="infrator_documento_${infratorCount}">CPF/CNPJ:</label>
+                    <input type="text" id="infrator_documento_${infratorCount}" class="infrator-documento" required>
+                </div>
+                <div class="form-group">
+                    <label for="infrator_endereco_${infratorCount}">Endereço:</label>
+                    <input type="text" id="infrator_endereco_${infratorCount}" class="infrator-endereco">
+                </div>
+                <div class="form-group">
+                    <label for="infrator_contato_${infratorCount}">Contato:</label>
+                    <input type="text" id="infrator_contato_${infratorCount}" class="infrator-contato">
+                </div>
+            `;
+            document.getElementById('infratores-container').appendChild(newInfrator);
+            
+            newInfrator.querySelector('.remove-infrator').addEventListener('click', function() {
+                if (infratorCount > 1) {
+                    document.getElementById('infratores-container').removeChild(newInfrator);
+                    infratorCount--;
+                }
+            });
+        }
+        
+        // Funções para manipulação de fotos
         function handlePhotoUpload(e) {
             const files = e.target.files;
             const defaultCoords = {
@@ -806,7 +881,6 @@
             e.target.value = '';
         }
 
-        // Converte DMS para DD (graus decimais)
         function convertDMSToDD(degrees, minutes, seconds, direction) {
             let dd = Number(degrees) + (Number(minutes) / 60) + (Number(seconds) / 3600);
             if (direction === 'S' || direction === 'W') {
@@ -815,7 +889,6 @@
             return dd;
         }
         
-        // Adiciona uma foto ao relatório
         function addPhoto(file, coords) {
             photoCount++;
             const photoContainer = document.getElementById('photo-container');
@@ -844,7 +917,6 @@
             photoContainer.appendChild(newPhoto);
         }
         
-        // Atualiza a numeração das fotos
         function updatePhotoNumbers() {
             const photos = document.querySelectorAll('.photo-item:not([style*="display: none"])');
             photoCount = 0;
@@ -855,12 +927,11 @@
             });
         }
         
-        // Limpa a assinatura
+        // Funções de utilidade
         function clearSignature() {
             signaturePad.clear();
         }
         
-        // Limpa o armazenamento
         function clearStorage() {
             if (confirm('Tem certeza que deseja limpar todos os dados salvos?')) {
                 localStorage.clear();
@@ -869,19 +940,16 @@
             }
         }
         
-        // Imprime o relatório
         function printReport() {
             window.print();
         }
         
-        // Verifica o espaço disponível no localStorage
         function checkStorageSpace() {
             try {
-                // Testa o armazenamento tentando salvar dados
                 const testKey = 'storage_test';
                 let data = '';
                 for (let i = 0; i < 1024; i++) {
-                    data += '1234567890'; // 10KB
+                    data += '1234567890';
                 }
                 
                 localStorage.setItem(testKey, data);
@@ -897,14 +965,52 @@
             }
         }
         
-        // Gera PDF com 2 fotos por página
+        function updateConnectionStatus() {
+            isOnline = navigator.onLine;
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            if (isOnline) {
+                connectionStatus.textContent = 'Online';
+                connectionStatus.className = 'connection-status online';
+                
+                if (!map) {
+                    const lat = parseFloat(document.getElementById('latitude').value) || -15.788;
+                    const lng = parseFloat(document.getElementById('longitude').value) || -47.879;
+                    initMap(lat, lng);
+                }
+            } else {
+                connectionStatus.textContent = 'Offline';
+                connectionStatus.className = 'connection-status offline';
+            }
+        }
+        
+        function generateQRCode() {
+            const qrElement = document.getElementById('qrcode');
+            qrElement.innerHTML = '';
+            
+            const reportId = `REL-${document.getElementById('data').value}-${document.getElementById('auto_numero_1').value || '000'}`;
+            
+            QRCode.toCanvas(qrElement, reportId, { width: 150 }, function(error) {
+                if (error) console.error('Erro ao gerar QR Code:', error);
+            });
+        }
+        
+        function blobToArrayBuffer(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(blob);
+            });
+        }
+        
+        // Funções de exportação
         function generatePDF() {
             if (!checkStorageSpace()) {
                 alert('Não é possível gerar PDF com armazenamento cheio.');
                 return;
             }
 
-            // Mostra mensagem de processamento
             const loadingMessage = document.createElement('div');
             loadingMessage.style.position = 'fixed';
             loadingMessage.style.top = '50%';
@@ -918,7 +1024,6 @@
             loadingMessage.textContent = 'Gerando PDF, por favor aguarde...';
             document.body.appendChild(loadingMessage);
 
-            // Inicializa o PDF
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({
                 orientation: 'portrait',
@@ -930,16 +1035,13 @@
             const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
             const pageHeight = doc.internal.pageSize.getHeight() - padding - 40;
 
-            // Seleciona todas as seções do formulário (exceto fotos)
             const sections = Array.from(document.querySelectorAll('.form-section')).filter(
                 section => !section.querySelector('.photo-container')
             );
             
-            // Processa seções de texto primeiro
             let currentHeight = padding + 20;
             let pageNumber = 1;
 
-            // Função para adicionar cabeçalho e rodapé
             const addHeaderFooter = (doc, pageNum, totalPages) => {
                 doc.setFontSize(14);
                 doc.setTextColor(0, 100, 0);
@@ -952,10 +1054,8 @@
                         padding - 10);
             };
 
-            // Processa cada seção sequencialmente
             const processTextSections = async (index) => {
                 if (index >= sections.length) {
-                    // Após processar todas as seções de texto, processa as fotos
                     await processPhotos();
                     doc.save('relatorio_ambiental.pdf');
                     document.body.removeChild(loadingMessage);
@@ -977,23 +1077,16 @@
                     const imgWidth = pageWidth;
                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                    // Verifica se precisa de nova página
                     if (index > 0 && (currentHeight + imgHeight > pageHeight)) {
                         doc.addPage();
                         currentHeight = padding + 20;
                         pageNumber++;
                     }
 
-                    // Adiciona cabeçalho
-                    addHeaderFooter(doc, pageNumber, '...'); // Total de páginas será atualizado depois
-                    
-                    // Adiciona a imagem ao PDF
+                    addHeaderFooter(doc, pageNumber, '...');
                     doc.addImage(imgData, 'PNG', padding, currentHeight, imgWidth, imgHeight);
-                    
-                    // Atualiza a altura atual
                     currentHeight += imgHeight + 20;
 
-                    // Processa próxima seção
                     processTextSections(index + 1);
                 } catch (error) {
                     document.body.removeChild(loadingMessage);
@@ -1002,26 +1095,21 @@
                 }
             };
 
-            // Processa as fotos - 2 por página
             const processPhotos = async () => {
                 const photoItems = document.querySelectorAll('.photo-item:not([style*="display: none"])');
                 const photoCount = photoItems.length;
                 
                 if (photoCount === 0) return;
 
-                // Calcula quantas páginas de fotos serão necessárias
                 const photosPerPage = 2;
                 const photoPages = Math.ceil(photoCount / photosPerPage);
-                
-                // Largura e altura para cada foto na página
                 const photoWidth = pageWidth;
-                const photoHeight = (pageHeight - 40) / photosPerPage; // 40 é o espaço entre fotos
+                const photoHeight = (pageHeight - 40) / photosPerPage;
                 
                 for (let i = 0; i < photoCount; i++) {
                     const photoIndex = i + 1;
                     const photo = photoItems[i];
                     
-                    // Se for a primeira foto da página ou primeira foto no geral, adiciona nova página
                     if (i % photosPerPage === 0) {
                         if (i > 0 || sections.length > 0) {
                             doc.addPage();
@@ -1032,19 +1120,16 @@
                     }
                     
                     try {
-                        // Cria um container temporário para a foto e sua legenda
                         const tempContainer = document.createElement('div');
                         tempContainer.style.width = photoWidth + 'px';
                         tempContainer.style.padding = '10px';
                         tempContainer.style.boxSizing = 'border-box';
                         
-                        // Clona a foto e seus elementos relacionados
                         const photoClone = photo.cloneNode(true);
                         photoClone.style.width = '100%';
                         photoClone.style.margin = '0';
                         photoClone.style.padding = '0';
                         
-                        // Remove o botão de remover (não é necessário no PDF)
                         const removeBtn = photoClone.querySelector('.remove-photo');
                         if (removeBtn) removeBtn.remove();
                         
@@ -1063,11 +1148,8 @@
                         
                         const imgData = canvas.toDataURL('image/png');
                         const imgHeight = (canvas.height * photoWidth) / canvas.width;
-                        
-                        // Ajusta a altura da imagem para caber no espaço designado
                         const finalHeight = Math.min(imgHeight, photoHeight);
                         
-                        // Adiciona a foto ao PDF
                         doc.addImage(
                             imgData, 
                             'PNG', 
@@ -1077,7 +1159,6 @@
                             finalHeight
                         );
                         
-                        // Atualiza a altura para a próxima foto
                         currentHeight += finalHeight + 20;
                         
                     } catch (error) {
@@ -1086,34 +1167,462 @@
                 }
             };
 
-            // Inicia o processamento das seções de texto
             processTextSections(0);
         }
         
-        // Gera planilha Excel com os dados dos infratores
+        async function generateWord() {
+            if (!validateForm()) {
+                alert('Por favor, preencha todos os campos obrigatórios antes de gerar o documento.');
+                return;
+            }
+
+            const loadingMessage = document.createElement('div');
+            loadingMessage.style.position = 'fixed';
+            loadingMessage.style.top = '50%';
+            loadingMessage.style.left = '50%';
+            loadingMessage.style.transform = 'translate(-50%, -50%)';
+            loadingMessage.style.backgroundColor = 'rgba(0,0,0,0.7)';
+            loadingMessage.style.color = 'white';
+            loadingMessage.style.padding = '20px';
+            loadingMessage.style.borderRadius = '5px';
+            loadingMessage.style.zIndex = '9999';
+            loadingMessage.textContent = 'Gerando documento Word, por favor aguarde...';
+            document.body.appendChild(loadingMessage);
+
+            try {
+                const { Document, Paragraph, TextRun, HeadingLevel, Packer, ImageRun } = docx;
+
+                const doc = new Document({
+                    title: "Relatório Fotográfico Ambiental",
+                    description: "Relatório gerado pelo sistema ICMBio",
+                    styles: {
+                        paragraphStyles: [
+                            {
+                                id: "normal",
+                                name: "Normal",
+                                run: {
+                                    size: 24,
+                                },
+                                paragraph: {
+                                    spacing: {
+                                        line: 276,
+                                    },
+                                },
+                            },
+                            {
+                                id: "titulo1",
+                                name: "Título 1",
+                                basedOn: "normal",
+                                next: "normal",
+                                run: {
+                                    bold: true,
+                                    size: 36,
+                                    color: "006400",
+                                },
+                                paragraph: {
+                                    spacing: {
+                                        before: 240,
+                                        after: 120,
+                                    },
+                                },
+                            },
+                            {
+                                id: "titulo2",
+                                name: "Título 2",
+                                basedOn: "normal",
+                                next: "normal",
+                                run: {
+                                    bold: true,
+                                    size: 30,
+                                    color: "006400",
+                                },
+                                paragraph: {
+                                    spacing: {
+                                        before: 200,
+                                        after: 100,
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                    sections: [],
+                });
+
+                // Capa
+                doc.addSection({
+                    properties: {},
+                    children: [
+                        new Paragraph({
+                            text: "Relatório Fotográfico Ambiental",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                            alignment: docx.AlignmentType.CENTER,
+                            spacing: { after: 400 },
+                        }),
+                        new Paragraph({
+                            text: "Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio",
+                            style: "normal",
+                            alignment: docx.AlignmentType.CENTER,
+                            spacing: { after: 600 },
+                        }),
+                        new Paragraph({
+                            text: `Data: ${document.getElementById('data').value}`,
+                            style: "normal",
+                            alignment: docx.AlignmentType.RIGHT,
+                        }),
+                        new Paragraph({
+                            text: `Local: ${document.getElementById('local').value}`,
+                            style: "normal",
+                            alignment: docx.AlignmentType.RIGHT,
+                        }),
+                    ],
+                });
+
+                // Dados do Relatório
+                doc.addSection({
+                    properties: {
+                        page: {
+                            margin: {
+                                top: 1000,
+                                bottom: 1000,
+                                left: 1000,
+                                right: 1000,
+                            },
+                        },
+                    },
+                    children: [
+                        new Paragraph({
+                            text: "1. Dados do Relatório",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        new Paragraph({
+                            text: `Data: ${document.getElementById('data').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: `Hora: ${document.getElementById('hora').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: `Local da Fiscalização: ${document.getElementById('local').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: `Coordenadas: ${document.getElementById('latitude').value}, ${document.getElementById('longitude').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: `Coordenadas (DMS): ${document.getElementById('dms-coordinates').textContent}`,
+                            style: "normal",
+                        }),
+                    ],
+                });
+
+                // Infratores
+                doc.addSection({
+                    children: [
+                        new Paragraph({
+                            text: "2. Infratores",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        ...Array.from(document.querySelectorAll('.infrator-item')).map((infrator, index) => {
+                            const infratorId = index + 1;
+                            return [
+                                new Paragraph({
+                                    text: `Infrator ${infratorId}`,
+                                    heading: HeadingLevel.HEADING_2,
+                                    style: "titulo2",
+                                }),
+                                new Paragraph({
+                                    text: `Nome: ${document.getElementById(`infrator_nome_${infratorId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: `CPF/CNPJ: ${document.getElementById(`infrator_documento_${infratorId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: `Endereço: ${document.getElementById(`infrator_endereco_${infratorId}`).value || 'Não informado'}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: `Contato: ${document.getElementById(`infrator_contato_${infratorId}`).value || 'Não informado'}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: "",
+                                    style: "normal",
+                                }),
+                            ];
+                        }).flat(),
+                    ],
+                });
+
+                // Autos de Infração
+                doc.addSection({
+                    children: [
+                        new Paragraph({
+                            text: "3. Autos de Infração",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        ...Array.from(document.querySelectorAll('.auto-item')).map((auto, index) => {
+                            const autoId = index + 1;
+                            return [
+                                new Paragraph({
+                                    text: `Auto ${autoId}`,
+                                    heading: HeadingLevel.HEADING_2,
+                                    style: "titulo2",
+                                }),
+                                new Paragraph({
+                                    text: `Número: ${document.getElementById(`auto_numero_${autoId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: `Descrição: ${document.getElementById(`auto_descricao_${autoId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: "",
+                                    style: "normal",
+                                }),
+                            ];
+                        }).flat(),
+                    ],
+                });
+
+                // Termos
+                doc.addSection({
+                    children: [
+                        new Paragraph({
+                            text: "4. Termos",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        ...Array.from(document.querySelectorAll('.termo-item')).map((termo, index) => {
+                            const termoId = index + 1;
+                            return [
+                                new Paragraph({
+                                    text: `Termo ${termoId}`,
+                                    heading: HeadingLevel.HEADING_2,
+                                    style: "titulo2",
+                                }),
+                                new Paragraph({
+                                    text: `Tipo: ${document.getElementById(`termo_tipo_${termoId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: `Número: ${document.getElementById(`termo_numero_${termoId}`).value}`,
+                                    style: "normal",
+                                }),
+                                new Paragraph({
+                                    text: "",
+                                    style: "normal",
+                                }),
+                            ];
+                        }).flat(),
+                    ],
+                });
+
+                // Descrição da Ação
+                doc.addSection({
+                    children: [
+                        new Paragraph({
+                            text: "5. Descrição da Ação",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        new Paragraph({
+                            text: document.getElementById('descricao').value,
+                            style: "normal",
+                        }),
+                    ],
+                });
+
+                // Fotos
+                const photoItems = Array.from(document.querySelectorAll('.photo-item:not([style*="display: none"])'));
+                if (photoItems.length > 0) {
+                    doc.addSection({
+                        children: [
+                            new Paragraph({
+                                text: "6. Registro Fotográfico",
+                                heading: HeadingLevel.HEADING_1,
+                                style: "titulo1",
+                            }),
+                        ],
+                    });
+
+                    for (let i = 0; i < photoItems.length; i += 2) {
+                        const sectionChildren = [];
+                        const photo1 = photoItems[i];
+                        
+                        sectionChildren.push(new Paragraph({
+                            text: photo1.querySelector('.photo-number').textContent,
+                            heading: HeadingLevel.HEADING_2,
+                            style: "titulo2",
+                        }));
+                        
+                        if (photo1.querySelector('.photo-caption').value) {
+                            sectionChildren.push(new Paragraph({
+                                text: `Legenda: ${photo1.querySelector('.photo-caption').value}`,
+                                style: "normal",
+                            }));
+                        }
+                        
+                        sectionChildren.push(new Paragraph({
+                            text: `Coordenadas: ${photo1.querySelector('.photo-coords').value}`,
+                            style: "normal",
+                        }));
+                        
+                        const img1 = photo1.querySelector('.photo-preview');
+                        const canvas1 = await html2canvas(img1);
+                        const imgData1 = canvas1.toDataURL('image/jpeg');
+                        const blob1 = await (await fetch(imgData1)).blob();
+                        
+                        sectionChildren.push(new Paragraph({
+                            children: [
+                                new ImageRun({
+                                    data: await blobToArrayBuffer(blob1),
+                                    transformation: {
+                                        width: 400,
+                                        height: 300,
+                                    },
+                                }),
+                            ],
+                        }));
+                        
+                        if (i + 1 < photoItems.length) {
+                            const photo2 = photoItems[i + 1];
+                            
+                            sectionChildren.push(new Paragraph({
+                                text: photo2.querySelector('.photo-number').textContent,
+                                heading: HeadingLevel.HEADING_2,
+                                style: "titulo2",
+                            }));
+                            
+                            if (photo2.querySelector('.photo-caption').value) {
+                                sectionChildren.push(new Paragraph({
+                                    text: `Legenda: ${photo2.querySelector('.photo-caption').value}`,
+                                    style: "normal",
+                                }));
+                            }
+                            
+                            sectionChildren.push(new Paragraph({
+                                text: `Coordenadas: ${photo2.querySelector('.photo-coords').value}`,
+                                style: "normal",
+                            }));
+                            
+                            const img2 = photo2.querySelector('.photo-preview');
+                            const canvas2 = await html2canvas(img2);
+                            const imgData2 = canvas2.toDataURL('image/jpeg');
+                            const blob2 = await (await fetch(imgData2)).blob();
+                            
+                            sectionChildren.push(new Paragraph({
+                                children: [
+                                    new ImageRun({
+                                        data: await blobToArrayBuffer(blob2),
+                                        transformation: {
+                                            width: 400,
+                                            height: 300,
+                                        },
+                                    }),
+                                ],
+                            }));
+                        }
+                        
+                        doc.addSection({
+                            properties: {
+                                page: {
+                                    margin: {
+                                        top: 1000,
+                                        bottom: 1000,
+                                        left: 1000,
+                                        right: 1000,
+                                    },
+                                },
+                            },
+                            children: sectionChildren,
+                        });
+                    }
+                }
+
+                // Assinatura
+                doc.addSection({
+                    children: [
+                        new Paragraph({
+                            text: "7. Assinatura do Fiscal",
+                            heading: HeadingLevel.HEADING_1,
+                            style: "titulo1",
+                        }),
+                        new Paragraph({
+                            text: `Nome: ${document.getElementById('fiscal_nome').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: `Matrícula: ${document.getElementById('fiscal_matricula').value}`,
+                            style: "normal",
+                        }),
+                        new Paragraph({
+                            text: "Assinatura:",
+                            style: "normal",
+                        }),
+                    ],
+                });
+
+                if (!signaturePad.isEmpty()) {
+                    const signatureData = signaturePad.toDataURL('image/png');
+                    const signatureBlob = await (await fetch(signatureData)).blob();
+                    
+                    doc.addSection({
+                        children: [
+                            new Paragraph({
+                                children: [
+                                    new ImageRun({
+                                        data: await blobToArrayBuffer(signatureBlob),
+                                        transformation: {
+                                            width: 300,
+                                            height: 100,
+                                        },
+                                    }),
+                                ],
+                            }),
+                        ],
+                    });
+                }
+
+                const blob = await Packer.toBlob(doc);
+                saveAs(blob, `Relatorio_Ambiental_${document.getElementById('data').value}.docx`);
+
+            } catch (error) {
+                console.error("Erro ao gerar documento Word:", error);
+                alert("Ocorreu um erro ao gerar o documento Word: " + error.message);
+            } finally {
+                document.body.removeChild(loadingMessage);
+            }
+        }
+        
         function generateExcel() {
             if (!validateForm()) {
                 alert('Por favor, preencha todos os campos obrigatórios antes de gerar a planilha.');
                 return;
             }
 
-            // Coletar os dados do formulário
             const reportData = {
                 data: document.getElementById('data').value,
                 hora: document.getElementById('hora').value,
                 local: document.getElementById('local').value,
-                infrator_nome: document.getElementById('infrator_nome').value,
-                infrator_documento: document.getElementById('infrator_documento').value,
                 latitude: document.getElementById('latitude').value,
                 longitude: document.getElementById('longitude').value,
+                descricao: document.getElementById('descricao').value,
                 fiscal_nome: document.getElementById('fiscal_nome').value,
                 fiscal_matricula: document.getElementById('fiscal_matricula').value,
-                descricao: document.getElementById('descricao').value,
                 autos: [],
-                termos: []
+                termos: [],
+                infratores: []
             };
 
-            // Coletar dados dos autos
             document.querySelectorAll('.auto-item').forEach((auto, index) => {
                 const autoId = index + 1;
                 reportData.autos.push({
@@ -1122,7 +1631,6 @@
                 });
             });
 
-            // Coletar dados dos termos
             document.querySelectorAll('.termo-item').forEach((termo, index) => {
                 const termoId = index + 1;
                 reportData.termos.push({
@@ -1131,54 +1639,50 @@
                 });
             });
 
-            // Preparar os dados para a planilha
+            document.querySelectorAll('.infrator-item').forEach((infrator, index) => {
+                const infratorId = index + 1;
+                reportData.infratores.push({
+                    nome: document.getElementById(`infrator_nome_${infratorId}`).value,
+                    documento: document.getElementById(`infrator_documento_${infratorId}`).value,
+                    endereco: document.getElementById(`infrator_endereco_${infratorId}`).value || '-',
+                    contato: document.getElementById(`infrator_contato_${infratorId}`).value || '-'
+                });
+            });
+
             const excelData = [
-                ["Relatório Fotográfico Ambiental - Banco de Dados de Infratores"],
+                ["Relatório Fotográfico Ambiental - Banco de Dados"],
                 ["Gerado em:", new Date().toLocaleString()],
                 [],
                 ["DADOS PRINCIPAIS"],
                 ["Data", reportData.data],
                 ["Hora", reportData.hora],
                 ["Local", reportData.local],
-                ["Nome do Infrator", reportData.infrator_nome],
-                ["CPF/CNPJ", reportData.infrator_documento],
                 ["Latitude", reportData.latitude],
                 ["Longitude", reportData.longitude],
                 ["Fiscal", reportData.fiscal_nome],
                 ["Matrícula", reportData.fiscal_matricula],
-                ["Descrição da Ação", reportData.descricao],
+                ["Descrição", reportData.descricao],
                 [],
-                ["AUTOS DE INFRAÇÃO"]
+                ["INFRATORES"],
+                ["Nome", "CPF/CNPJ", "Endereço", "Contato"],
+                ...reportData.infratores.map(i => [i.nome, i.documento, i.endereco, i.contato]),
+                [],
+                ["AUTOS DE INFRAÇÃO"],
+                ["Número", "Descrição"],
+                ...reportData.autos.map(a => [a.numero, a.descricao]),
+                [],
+                ["TERMOS"],
+                ["Tipo", "Número"],
+                ...reportData.termos.map(t => [t.tipo, t.numero])
             ];
 
-            // Adicionar cabeçalhos dos autos
-            excelData.push(["Número", "Descrição"]);
-
-            // Adicionar dados dos autos
-            reportData.autos.forEach(auto => {
-                excelData.push([auto.numero, auto.descricao]);
-            });
-
-            excelData.push([], ["TERMOS"]);
-
-            // Adicionar cabeçalhos dos termos
-            excelData.push(["Tipo", "Número"]);
-
-            // Adicionar dados dos termos
-            reportData.termos.forEach(termo => {
-                excelData.push([termo.tipo, termo.numero]);
-            });
-
-            // Criar a planilha
             const ws = XLSX.utils.aoa_to_sheet(excelData);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Infrações");
+            XLSX.utils.book_append_sheet(wb, ws, "Relatório");
 
-            // Gerar o arquivo Excel
-            XLSX.writeFile(wb, `Banco_Dados_Infratores_${reportData.data.replace(/-/g, '')}.xlsx`);
+            XLSX.writeFile(wb, `Banco_Dados_Ambiental_${reportData.data.replace(/-/g, '')}.xlsx`);
         }
         
-        // Salva os dados no localStorage
         function saveData() {
             if (!validateForm()) {
                 alert('Por favor, preencha todos os campos obrigatórios antes de salvar.');
@@ -1194,8 +1698,6 @@
                 data: document.getElementById('data').value,
                 hora: document.getElementById('hora').value,
                 local: document.getElementById('local').value,
-                infrator_nome: document.getElementById('infrator_nome').value,
-                infrator_documento: document.getElementById('infrator_documento').value,
                 latitude: document.getElementById('latitude').value,
                 longitude: document.getElementById('longitude').value,
                 descricao: document.getElementById('descricao').value,
@@ -1204,10 +1706,10 @@
                 signature: signaturePad.isEmpty() ? null : signaturePad.toDataURL('image/png'),
                 autos: [],
                 termos: [],
+                infratores: [],
                 photos: []
             };
             
-            // Coleta dados dos autos
             document.querySelectorAll('.auto-item').forEach((auto, index) => {
                 const autoId = index + 1;
                 reportData.autos.push({
@@ -1216,7 +1718,6 @@
                 });
             });
             
-            // Coleta dados dos termos
             document.querySelectorAll('.termo-item').forEach((termo, index) => {
                 const termoId = index + 1;
                 reportData.termos.push({
@@ -1225,7 +1726,16 @@
                 });
             });
             
-            // Coleta dados das fotos
+            document.querySelectorAll('.infrator-item').forEach((infrator, index) => {
+                const infratorId = index + 1;
+                reportData.infratores.push({
+                    nome: document.getElementById(`infrator_nome_${infratorId}`).value,
+                    documento: document.getElementById(`infrator_documento_${infratorId}`).value,
+                    endereco: document.getElementById(`infrator_endereco_${infratorId}`).value,
+                    contato: document.getElementById(`infrator_contato_${infratorId}`).value
+                });
+            });
+            
             document.querySelectorAll('.photo-item:not([style*="display: none"])').forEach(photo => {
                 reportData.photos.push({
                     caption: photo.querySelector('.photo-caption').value,
@@ -1238,8 +1748,6 @@
             try {
                 localStorage.setItem('ambientalReportData', JSON.stringify(reportData));
                 alert('Dados salvos com sucesso!');
-                
-                // Atualiza o QRCode com os dados atuais
                 generateQRCode();
             } catch (e) {
                 if (e.name === 'QuotaExceededError') {
@@ -1250,7 +1758,6 @@
             }
         }
         
-        // Carrega os dados do localStorage
         function loadData() {
             const savedData = localStorage.getItem('ambientalReportData');
             if (!savedData) {
@@ -1261,22 +1768,19 @@
             try {
                 const reportData = JSON.parse(savedData);
                 
-                // Limpa os containers antes de carregar novos dados
                 document.getElementById('autos-container').innerHTML = '';
                 document.getElementById('termos-container').innerHTML = '';
+                document.getElementById('infratores-container').innerHTML = '';
                 document.getElementById('photo-container').innerHTML = '';
                 
-                // Reinicia os contadores
                 autoCount = 0;
                 termoCount = 0;
+                infratorCount = 0;
                 photoCount = 0;
                 
-                // Carrega dados básicos
                 document.getElementById('data').value = reportData.data || '';
                 document.getElementById('hora').value = reportData.hora || '';
                 document.getElementById('local').value = reportData.local || '';
-                document.getElementById('infrator_nome').value = reportData.infrator_nome || '';
-                document.getElementById('infrator_documento').value = reportData.infrator_documento || '';
                 document.getElementById('latitude').value = reportData.latitude || '';
                 document.getElementById('longitude').value = reportData.longitude || '';
                 document.getElementById('descricao').value = reportData.descricao || '';
@@ -1299,16 +1803,13 @@
                     );
                 }
                 
-                // Carrega autos de infração
                 if (reportData.autos && reportData.autos.length > 0) {
                     reportData.autos.forEach((auto, index) => {
                         if (index === 0) {
-                            // Usa o primeiro auto que já existe
                             document.getElementById('auto_numero_1').value = auto.numero || '';
                             document.getElementById('auto_descricao_1').value = auto.descricao || '';
                             autoCount = 1;
                         } else {
-                            // Adiciona novos autos para os demais
                             addAuto();
                             const autoId = index + 1;
                             document.getElementById(`auto_numero_${autoId}`).value = auto.numero || '';
@@ -1317,16 +1818,13 @@
                     });
                 }
                 
-                // Carrega termos
                 if (reportData.termos && reportData.termos.length > 0) {
                     reportData.termos.forEach((termo, index) => {
                         if (index === 0) {
-                            // Usa o primeiro termo que já existe
                             document.getElementById('termo_tipo_1').value = termo.tipo || '';
                             document.getElementById('termo_numero_1').value = termo.numero || '';
                             termoCount = 1;
                         } else {
-                            // Adiciona novos termos para os demais
                             addTermo();
                             const termoId = index + 1;
                             document.getElementById(`termo_tipo_${termoId}`).value = termo.tipo || '';
@@ -1335,11 +1833,28 @@
                     });
                 }
                 
-                // Carrega fotos
+                if (reportData.infratores && reportData.infratores.length > 0) {
+                    reportData.infratores.forEach((infrator, index) => {
+                        if (index === 0) {
+                            document.getElementById('infrator_nome_1').value = infrator.nome || '';
+                            document.getElementById('infrator_documento_1').value = infrator.documento || '';
+                            document.getElementById('infrator_endereco_1').value = infrator.endereco || '';
+                            document.getElementById('infrator_contato_1').value = infrator.contato || '';
+                            infratorCount = 1;
+                        } else {
+                            addInfrator();
+                            const infratorId = index + 1;
+                            document.getElementById(`infrator_nome_${infratorId}`).value = infrator.nome || '';
+                            document.getElementById(`infrator_documento_${infratorId}`).value = infrator.documento || '';
+                            document.getElementById(`infrator_endereco_${infratorId}`).value = infrator.endereco || '';
+                            document.getElementById(`infrator_contato_${infratorId}`).value = infrator.contato || '';
+                        }
+                    });
+                }
+                
                 if (reportData.photos && reportData.photos.length > 0) {
                     reportData.photos.forEach(photo => {
                         if (photo.src) {
-                            // Cria um elemento de foto manualmente
                             photoCount++;
                             const photoContainer = document.getElementById('photo-container');
                             const template = photoContainer.querySelector('.photo-item');
@@ -1363,20 +1878,16 @@
                 }
                 
                 alert('Dados carregados com sucesso!');
-                
-                // Atualiza o QRCode com os dados carregados
                 generateQRCode();
             } catch (e) {
                 alert('Erro ao carregar dados: ' + e.message);
             }
         }
         
-        // Valida o formulário
         function validateForm() {
-            // Verifica campos obrigatórios
             const requiredFields = [
-                'data', 'hora', 'local', 'infrator_nome', 'infrator_documento',
-                'latitude', 'longitude', 'descricao', 'fiscal_nome', 'fiscal_matricula'
+                'data', 'hora', 'local', 'latitude', 'longitude',
+                'descricao', 'fiscal_nome', 'fiscal_matricula'
             ];
             
             for (const fieldId of requiredFields) {
@@ -1387,7 +1898,6 @@
                 }
             }
             
-            // Verifica pelo menos um auto de infração preenchido
             let hasAuto = false;
             document.querySelectorAll('.auto-numero').forEach(auto => {
                 if (auto.value.trim()) hasAuto = true;
@@ -1398,48 +1908,22 @@
                 return false;
             }
             
-            // Verifica assinatura
+            let hasInfrator = false;
+            document.querySelectorAll('.infrator-nome').forEach(infrator => {
+                if (infrator.value.trim()) hasInfrator = true;
+            });
+            
+            if (!hasInfrator) {
+                alert('Pelo menos um infrator deve ser preenchido.');
+                return false;
+            }
+            
             if (signaturePad.isEmpty()) {
                 alert('Por favor, forneça sua assinatura.');
                 return false;
             }
             
             return true;
-        }
-        
-        // Atualiza o status da conexão
-        function updateConnectionStatus() {
-            isOnline = navigator.onLine;
-            const connectionStatus = document.getElementById('connectionStatus');
-            
-            if (isOnline) {
-                connectionStatus.textContent = 'Online';
-                connectionStatus.className = 'connection-status online';
-                
-                // Recarrega o mapa se estiver offline
-                if (!map) {
-                    const lat = parseFloat(document.getElementById('latitude').value) || -15.788;
-                    const lng = parseFloat(document.getElementById('longitude').value) || -47.879;
-                    initMap(lat, lng);
-                }
-            } else {
-                connectionStatus.textContent = 'Offline';
-                connectionStatus.className = 'connection-status offline';
-            }
-        }
-        
-        // Gera QR Code com informações do relatório
-        function generateQRCode() {
-            const qrElement = document.getElementById('qrcode');
-            qrElement.innerHTML = '';
-            
-            // Cria um ID único baseado nos dados atuais
-            const reportId = `REL-${document.getElementById('data').value}-${document.getElementById('auto_numero_1').value || '000'}`;
-            
-            // Gera o QR Code
-            QRCode.toCanvas(qrElement, reportId, { width: 150 }, function(error) {
-                if (error) console.error('Erro ao gerar QR Code:', error);
-            });
         }
     </script>
 </body>
