@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Fotográfico Ambiental 3.3</title>
+    <title>Relatório Fotográfico Ambiental 3.4</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body {
@@ -281,7 +281,7 @@
     
     <div class="container" id="relatorio">
         <div class="header">
-            <h1>Relatório Fotográfico Ambiental - Versão 3.3</h1>
+            <h1>Relatório Fotográfico Ambiental - Versão 3.4</h1>
             <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
             <div id="qrcode"></div>
         </div>
@@ -893,20 +893,13 @@
             }
         }
         
-        // Gera PDF com paginação melhorada
+        // Gera PDF - VERSÃO CORRIGIDA
         function generatePDF() {
             if (!checkStorageSpace()) {
                 alert('Não é possível gerar PDF com armazenamento cheio.');
                 return;
             }
 
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'pt', 'a4');
-            const element = document.getElementById('relatorio');
-            const padding = 40;
-            const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
-            const pageHeight = doc.internal.pageSize.getHeight() - padding - 40; // Espaço para cabeçalho/rodapé
-            
             // Mostra mensagem de processamento
             const loadingMessage = document.createElement('div');
             loadingMessage.style.position = 'fixed';
@@ -920,101 +913,86 @@
             loadingMessage.style.zIndex = '9999';
             loadingMessage.textContent = 'Gerando PDF, por favor aguarde...';
             document.body.appendChild(loadingMessage);
-            
-            // Divide o relatório em seções lógicas para melhor paginação
-            const sections = [
-                {
-                    title: "Dados do Relatório",
-                    selector: ".form-section:nth-child(2)"
-                },
-                {
-                    title: "Autos de Infração",
-                    selector: ".form-section:nth-child(3)"
-                },
-                {
-                    title: "Termos",
-                    selector: ".form-section:nth-child(4)"
-                },
-                {
-                    title: "Descrição da Ação",
-                    selector: ".form-section:nth-child(5)"
-                },
-                {
-                    title: "Registro Fotográfico",
-                    selector: ".form-section:nth-child(6)",
-                    isPhotoSection: true
-                },
-                {
-                    title: "Assinatura do Fiscal",
-                    selector: ".form-section:nth-child(7)"
-                }
-            ];
-            
-            let currentPage = 1;
-            
-            // Função para adicionar cabeçalho
-            const addHeader = (doc, title, pageNumber, totalPages) => {
+
+            // Inicializa o PDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'pt',
+                format: 'a4'
+            });
+
+            const padding = 40;
+            const pageWidth = doc.internal.pageSize.getWidth() - padding * 2;
+            const pageHeight = doc.internal.pageSize.getHeight() - padding - 40;
+
+            // Seleciona todas as seções do formulário
+            const sections = document.querySelectorAll('.form-section');
+            let currentHeight = padding + 20;
+            let pageNumber = 1;
+
+            // Função para adicionar cabeçalho e rodapé
+            const addHeaderFooter = (doc, pageNum, totalPages) => {
                 doc.setFontSize(14);
                 doc.setTextColor(0, 100, 0);
-                doc.text(title, padding, padding - 10);
-                doc.setFontSize(10);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`Página ${pageNumber} de ${totalPages}`, doc.internal.pageSize.getWidth() - padding - 50, padding - 10);
+                doc.text('Relatório Fotográfico Ambiental', padding, padding - 10);
                 
-                // Linha divisória
-                doc.setDrawColor(0, 100, 0);
-                doc.setLineWidth(0.5);
-                doc.line(padding, padding, doc.internal.pageSize.getWidth() - padding, padding);
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Página ${pageNum} de ${totalPages}`, 
+                        doc.internal.pageSize.getWidth() - padding - 50, 
+                        padding - 10);
             };
-            
+
             // Processa cada seção sequencialmente
-            const processSection = (index) => {
+            const processSection = async (index) => {
                 if (index >= sections.length) {
-                    // Remove a mensagem de carregamento
-                    document.body.removeChild(loadingMessage);
-                    
-                    // Salva o PDF
+                    // Finaliza e salva o PDF
                     doc.save('relatorio_ambiental.pdf');
+                    document.body.removeChild(loadingMessage);
                     return;
                 }
-                
+
                 const section = sections[index];
-                const sectionElement = document.querySelector(section.selector);
                 
-                html2canvas(sectionElement, {
-                    scale: 2,
-                    logging: false,
-                    useCORS: true,
-                    backgroundColor: '#FFFFFF',
-                    allowTaint: true
-                }).then(canvas => {
+                try {
+                    const canvas = await html2canvas(section, {
+                        scale: 2,
+                        logging: false,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#FFFFFF'
+                    });
+                    
                     const imgData = canvas.toDataURL('image/png');
                     const imgWidth = pageWidth;
                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                    
+
                     // Verifica se precisa de nova página
-                    if (currentPage > 1 || (index > 0 && doc.autoTableEndPosY() + imgHeight > pageHeight)) {
+                    if (index > 0 && (currentHeight + imgHeight > pageHeight)) {
                         doc.addPage();
-                        currentPage++;
+                        currentHeight = padding + 20;
+                        pageNumber++;
                     }
-                    
+
                     // Adiciona cabeçalho
-                    addHeader(doc, section.title, currentPage, sections.length);
-                    
-                    // Calcula posição Y inicial (após cabeçalho)
-                    const startY = padding + 20;
+                    addHeaderFooter(doc, pageNumber, sections.length);
                     
                     // Adiciona a imagem ao PDF
-                    doc.addImage(imgData, 'PNG', padding, startY, imgWidth, imgHeight);
+                    doc.addImage(imgData, 'PNG', padding, currentHeight, imgWidth, imgHeight);
                     
+                    // Atualiza a altura atual
+                    currentHeight += imgHeight + 20;
+
                     // Processa próxima seção
                     processSection(index + 1);
-                }).catch(error => {
+                } catch (error) {
                     document.body.removeChild(loadingMessage);
-                    alert('Erro ao gerar PDF: ' + error.message);
-                });
+                    console.error('Erro ao gerar PDF:', error);
+                    alert('Ocorreu um erro ao gerar o PDF: ' + error.message);
+                }
             };
-            
+
             // Inicia o processamento
             processSection(0);
         }
