@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatório Fotográfico Ambiental 4.1</title>
+    <title>Relatório Fotográfico Ambiental 4.2</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -489,6 +490,25 @@
             opacity: 1;
         }
         
+        /* Estilos para os controles de desenho */
+        .leaflet-draw-toolbar a {
+            background-color: var(--primary-color) !important;
+            color: white !important;
+        }
+        
+        .leaflet-draw-toolbar a:hover {
+            background-color: var(--secondary-color) !important;
+        }
+        
+        .leaflet-draw-actions a {
+            background-color: var(--primary-color) !important;
+            color: white !important;
+        }
+        
+        .leaflet-draw-actions a:hover {
+            background-color: var(--secondary-color) !important;
+        }
+        
         /* Responsividade */
         @media (max-width: 768px) {
             body {
@@ -626,7 +646,7 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <h3>Relatório Ambiental</h3>
-            <p>Versão 4.1</p>
+            <p>Versão 4.2</p>
         </div>
         <ul class="sidebar-menu">
             <li><a href="#dados-relatorio" class="active"><i class="fas fa-file-alt"></i> Dados do Relatório</a></li>
@@ -656,7 +676,7 @@
         
         <div class="container" id="relatorio">
             <div class="header">
-                <h1>Relatório Fotográfico Ambiental <small>Versão 4.1</small></h1>
+                <h1>Relatório Fotográfico Ambiental <small>Versão 4.2</small></h1>
                 <p>Instituto Chico Mendes de Conservação da Biodiversidade - ICMBio</p>
                 <div id="qrcode"></div>
             </div>
@@ -761,6 +781,15 @@
                     </button>
                     <button id="export-kml" class="btn btn-secondary">
                         <i class="fas fa-file-export"></i> Exportar KML
+                    </button>
+                    <button id="draw-polygon" class="btn btn-secondary">
+                        <i class="fas fa-draw-polygon"></i> Marcar Polígono
+                    </button>
+                    <button id="tracker-toggle" class="btn btn-secondary">
+                        <i class="fas fa-satellite-dish"></i> Gravar Tracker
+                    </button>
+                    <button id="clear-drawings" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Limpar Desenhos
                     </button>
                 </div>
                 
@@ -920,13 +949,14 @@
             
             <div class="footer">
                 <p>Todos os direitos reservados &copy; <span id="current-year"></span> - Iram Mendes Jr - Analista Ambiental - ICMBio</p>
-                <p>Versão 4.1 - <span id="last-update">2023-11-15</span></p>
+                <p>Versão 4.2 - <span id="last-update">2023-11-15</span></p>
             </div>
         </div>
     </div>
 
     <!-- Bibliotecas JavaScript -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -950,6 +980,13 @@
         let isOnline = navigator.onLine;
         let photoMarkers = [];
         let storageWarningShown = false;
+        
+        // Controles de desenho
+        let drawnItems = new L.FeatureGroup();
+        let drawControl;
+        let isTracking = false;
+        let trackingInterval;
+        let trackPoints = [];
         
         // Chave para criptografia (em produção, isso deve ser mais seguro)
         const CRYPTO_KEY = "ICMBio@Ambiental2023";
@@ -1001,6 +1038,11 @@
             document.getElementById('get-location').addEventListener('click', getLocation);
             document.getElementById('manual-coords').addEventListener('click', manualCoords);
             document.getElementById('export-kml').addEventListener('click', exportToKML);
+            
+            // Botões de desenho
+            document.getElementById('draw-polygon').addEventListener('click', togglePolygonDrawing);
+            document.getElementById('tracker-toggle').addEventListener('click', toggleTracking);
+            document.getElementById('clear-drawings').addEventListener('click', clearDrawings);
             
             // Botões de formulário
             document.getElementById('add-auto').addEventListener('click', addAuto);
@@ -1057,6 +1099,8 @@
             addTooltip('infrator_documento_1', 'Informe CPF (11 dígitos) ou CNPJ (14 dígitos)');
             addTooltip('photo-upload', 'Fotos com geolocalização serão posicionadas no mapa automaticamente');
             addTooltip('generate-summary', 'Gera um resumo automático baseado nos dados preenchidos');
+            addTooltip('draw-polygon', 'Clique para ativar/desativar o modo de desenho de polígonos');
+            addTooltip('tracker-toggle', 'Clique para iniciar/parar a gravação do seu trajeto');
         }
         
         function addTooltip(elementId, text) {
@@ -1112,6 +1156,9 @@
                 }
             }
             
+            // Adiciona camada de desenhos
+            map.addLayer(drawnItems);
+            
             // Adiciona marcador
             marker = L.marker([lat, lng], { 
                 draggable: true,
@@ -1139,6 +1186,187 @@
                 }
                 reverseGeocode();
             });
+        }
+        
+        // Funções para manipulação de polígonos
+        function togglePolygonDrawing() {
+            const polygonBtn = document.getElementById('draw-polygon');
+            
+            if (drawControl) {
+                map.removeControl(drawControl);
+                drawControl = null;
+                polygonBtn.classList.remove('btn-primary');
+                polygonBtn.classList.add('btn-secondary');
+            } else {
+                // Para qualquer rastreamento ativo
+                if (isTracking) {
+                    toggleTracking();
+                }
+                
+                drawControl = new L.Control.Draw({
+                    draw: {
+                        polygon: {
+                            shapeOptions: {
+                                color: '#006400',
+                                fillColor: '#006400',
+                                fillOpacity: 0.2
+                            },
+                            allowIntersection: false,
+                            showArea: true,
+                            metric: true
+                        },
+                        polyline: false,
+                        rectangle: false,
+                        circle: false,
+                        marker: false,
+                        circlemarker: false
+                    },
+                    edit: {
+                        featureGroup: drawnItems
+                    }
+                });
+                
+                map.addControl(drawControl);
+                polygonBtn.classList.remove('btn-secondary');
+                polygonBtn.classList.add('btn-primary');
+                
+                map.on(L.Draw.Event.CREATED, function(e) {
+                    const layer = e.layer;
+                    drawnItems.addLayer(layer);
+                    
+                    // Calcula a área se for um polígono
+                    if (layer instanceof L.Polygon) {
+                        const area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
+                        const areaHectares = (area / 10000).toFixed(2);
+                        layer.bindPopup(`Área: ${areaHectares} hectares`);
+                        
+                        // Adiciona ao relatório
+                        const descricao = document.getElementById('descricao');
+                        const textoAdicional = `\n\nÁrea delimitada: ${areaHectares} hectares`;
+                        
+                        if (!descricao.value.includes(textoAdicional)) {
+                            descricao.value += textoAdicional;
+                            updateProgressBar();
+                        }
+                    }
+                });
+                
+                map.on(L.Draw.Event.DRAWSTOP, function() {
+                    map.removeControl(drawControl);
+                    drawControl = null;
+                    polygonBtn.classList.remove('btn-primary');
+                    polygonBtn.classList.add('btn-secondary');
+                });
+            }
+        }
+        
+        function clearDrawings() {
+            if (confirm('Tem certeza que deseja remover todos os desenhos do mapa?')) {
+                drawnItems.clearLayers();
+            }
+        }
+        
+        // Funções para rastreamento
+        function toggleTracking() {
+            const trackerBtn = document.getElementById('tracker-toggle');
+            
+            if (isTracking) {
+                // Parar o rastreamento
+                clearInterval(trackingInterval);
+                isTracking = false;
+                trackerBtn.classList.remove('btn-primary');
+                trackerBtn.classList.add('btn-secondary');
+                trackerBtn.innerHTML = '<i class="fas fa-satellite-dish"></i> Gravar Tracker';
+                
+                // Remove controles de desenho se estiverem ativos
+                if (drawControl) {
+                    map.removeControl(drawControl);
+                    drawControl = null;
+                    document.getElementById('draw-polygon').classList.remove('btn-primary');
+                    document.getElementById('draw-polygon').classList.add('btn-secondary');
+                }
+                
+                // Mostrar os dados coletados
+                if (trackPoints.length > 1) {
+                    const polyline = L.polyline(trackPoints, {
+                        color: 'red',
+                        weight: 5,
+                        opacity: 0.7
+                    }).addTo(drawnItems);
+                    
+                    // Calcula a distância total
+                    let totalDistance = 0;
+                    for (let i = 1; i < trackPoints.length; i++) {
+                        totalDistance += trackPoints[i-1].distanceTo(trackPoints[i]);
+                    }
+                    
+                    // Adiciona ao relatório
+                    const descricao = document.getElementById('descricao');
+                    const textoAdicional = `\n\nTrajeto percorrido: ${(totalDistance / 1000).toFixed(2)} km`;
+                    
+                    if (!descricao.value.includes(textoAdicional)) {
+                        descricao.value += textoAdicional;
+                        updateProgressBar();
+                    }
+                    
+                    alert(`Rota gravada com ${trackPoints.length} pontos\nDistância total: ${(totalDistance / 1000).toFixed(2)} km`);
+                }
+                
+                trackPoints = [];
+            } else {
+                // Iniciar o rastreamento
+                if (!navigator.geolocation) {
+                    alert("Geolocalização não suportada pelo navegador");
+                    return;
+                }
+                
+                isTracking = true;
+                trackerBtn.classList.remove('btn-secondary');
+                trackerBtn.classList.add('btn-primary');
+                trackerBtn.innerHTML = '<i class="fas fa-stop"></i> Parar Gravação';
+                
+                // Limpa pontos anteriores
+                trackPoints = [];
+                
+                // Obtém a posição inicial
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    trackPoints.push(L.latLng(lat, lng));
+                    
+                    // Atualiza a posição periodicamente
+                    trackingInterval = setInterval(() => {
+                        navigator.geolocation.getCurrentPosition(pos => {
+                            const newLat = pos.coords.latitude;
+                            const newLng = pos.coords.longitude;
+                            const newPoint = L.latLng(newLat, newLng);
+                            
+                            // Adiciona apenas se mover significativamente
+                            if (trackPoints.length === 0 || 
+                                trackPoints[trackPoints.length-1].distanceTo(newPoint) > 5) {
+                                trackPoints.push(newPoint);
+                                
+                                // Atualiza a linha no mapa
+                                if (trackPoints.length > 1) {
+                                    // Remove a linha anterior se existir
+                                    drawnItems.eachLayer(layer => {
+                                        if (layer instanceof L.Polyline) {
+                                            drawnItems.removeLayer(layer);
+                                        }
+                                    });
+                                    
+                                    // Adiciona nova linha
+                                    L.polyline(trackPoints, {
+                                        color: 'red',
+                                        weight: 5,
+                                        opacity: 0.7
+                                    }).addTo(drawnItems);
+                                }
+                            }
+                        }, null, {enableHighAccuracy: true});
+                    }, 5000); // Atualiza a cada 5 segundos
+                }, null, {enableHighAccuracy: true});
+            }
         }
         
         function getLocation() {
@@ -1304,18 +1532,52 @@
             const placeName = document.getElementById('local').value || "Local da Fiscalização";
             const date = document.getElementById('data').value || new Date().toISOString().split('T')[0];
             
-            const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${placeName}</name>
-    <description>Relatório de fiscalização ambiental realizada em ${formatDate(date)}</description>
+            // Adiciona polígonos e linhas ao KML
+            let placemarks = '';
+            
+            // Ponto principal
+            placemarks += `
     <Placemark>
       <name>${placeName}</name>
       <description>Local da fiscalização ambiental</description>
       <Point>
         <coordinates>${lng},${lat},0</coordinates>
       </Point>
-    </Placemark>
+    </Placemark>`;
+            
+            // Polígonos e linhas desenhadas
+            drawnItems.eachLayer(layer => {
+                if (layer instanceof L.Polygon) {
+                    const coords = layer.getLatLngs()[0].map(ll => `${ll.lng},${ll.lat},0`).join(' ');
+                    placemarks += `
+    <Placemark>
+      <name>Área delimitada</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coords}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>`;
+                } else if (layer instanceof L.Polyline) {
+                    const coords = layer.getLatLngs().map(ll => `${ll.lng},${ll.lat},0`).join(' ');
+                    placemarks += `
+    <Placemark>
+      <name>Trajeto percorrido</name>
+      <LineString>
+        <coordinates>${coords}</coordinates>
+      </LineString>
+    </Placemark>`;
+                }
+            });
+            
+            const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${placeName}</name>
+    <description>Relatório de fiscalização ambiental realizada em ${formatDate(date)}</description>
+    ${placemarks}
   </Document>
 </kml>`;
             
@@ -2559,7 +2821,7 @@
             }
             
             const reportData = {
-                version: "4.1",
+                version: "4.2",
                 data: document.getElementById('data').value,
                 hora: document.getElementById('hora').value,
                 local: document.getElementById('local').value,
@@ -2573,7 +2835,8 @@
                 autos: [],
                 termos: [],
                 infratores: [],
-                photos: []
+                photos: [],
+                drawings: []
             };
             
             document.querySelectorAll('.auto-item').forEach((auto, index) => {
@@ -2611,6 +2874,22 @@
                 });
             });
             
+            // Salva desenhos (polígonos e linhas)
+            drawnItems.eachLayer(layer => {
+                if (layer instanceof L.Polygon) {
+                    reportData.drawings.push({
+                        type: 'polygon',
+                        latlngs: layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })),
+                        area: L.GeometryUtil.geodesicArea(layer.getLatLngs()[0])
+                    });
+                } else if (layer instanceof L.Polyline) {
+                    reportData.drawings.push({
+                        type: 'polyline',
+                        latlngs: layer.getLatLngs().map(ll => ({ lat: ll.lat, lng: ll.lng }))
+                    });
+                }
+            });
+            
             try {
                 const encryptedData = CryptoJS.AES.encrypt(JSON.stringify(reportData), CRYPTO_KEY).toString();
                 localStorage.setItem('ambientalReportData', encryptedData);
@@ -2642,7 +2921,7 @@
                 }
 
                 // Verifica versão do formato dos dados
-                if (!reportData.version || reportData.version !== "4.1") {
+                if (!reportData.version || reportData.version !== "4.2") {
                     if (!confirm('Os dados salvos são de uma versão antiga. Deseja tentar carregá-los mesmo assim?')) {
                         return;
                     }
@@ -2652,6 +2931,7 @@
                 document.getElementById('termos-container').innerHTML = '';
                 document.getElementById('infratores-container').innerHTML = '';
                 document.getElementById('photo-container').innerHTML = '';
+                drawnItems.clearLayers();
                 
                 autoCount = 0;
                 termoCount = 0;
@@ -2762,6 +3042,32 @@
                                 const [lat, lng] = photo.coords.split(',').map(coord => parseFloat(coord.trim()));
                                 addPhotoMarker(lat, lng, photoCount);
                             }
+                        }
+                    });
+                }
+                
+                // Carrega desenhos (polígonos e linhas)
+                if (reportData.drawings && reportData.drawings.length > 0) {
+                    reportData.drawings.forEach(drawing => {
+                        const latlngs = drawing.latlngs.map(ll => L.latLng(ll.lat, ll.lng));
+                        
+                        if (drawing.type === 'polygon') {
+                            const polygon = L.polygon(latlngs, {
+                                color: '#006400',
+                                fillColor: '#006400',
+                                fillOpacity: 0.2
+                            }).addTo(drawnItems);
+                            
+                            if (drawing.area) {
+                                const areaHectares = (drawing.area / 10000).toFixed(2);
+                                polygon.bindPopup(`Área: ${areaHectares} hectares`);
+                            }
+                        } else if (drawing.type === 'polyline') {
+                            L.polyline(latlngs, {
+                                color: 'red',
+                                weight: 5,
+                                opacity: 0.7
+                            }).addTo(drawnItems);
                         }
                     });
                 }
